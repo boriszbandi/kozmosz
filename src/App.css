@@ -2,6 +2,17 @@
   text-align: center;
 }
 
+body {
+  background-image: url("../public/home_bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  margin: 0;
+  padding: 0;
+  font-family: 'Roboto', sans-serif;
+}
+
 .App-logo {
   height: 40vmin;
   pointer-events: none;
