@@ -1,0 +1,19 @@
+@keyframes move-scale-tail {
+    0%, 100% {
+      transform: translateY(0) scale(1);
+    }
+    50% {
+      transform: translateY(0.1px) scale(1.1); /* Flame moves and scales */
+    }
+  }
+  
+  .gas-tail {
+    animation: move-scale-tail 5s infinite ease-in-out;
+    transform-origin: center top; /* Adjust to suit rotation point */
+  }
+  
+  .rocket-body {
+    transform: rotate(-45deg); /* Rotate the rocket body vertically */
+    transform-origin: center;  /* Ensure rotation happens from the center */
+  }
+  

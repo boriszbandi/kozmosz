@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');  // Import cors
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, Locale } = require('discord.js');
 require('dotenv').config();
 
 const client = new Client({
@@ -20,28 +20,31 @@ app.use(cors());  // Allow requests from any origin
 
 // Function to fetch events
 const fetchEvents = async () => {
-  try {
-    const guild = await client.guilds.fetch(process.env.DISCORD_GUILD_ID);  // Replace with your Discord server's ID
-    const events = await guild.scheduledEvents.fetch();
-
-    // Update the eventsData array
-    eventsData = events.map(event => {
-      const coverImageURL = event.coverImage ? event.coverImageURL : null;
-
-      return {
-        name: event.name,
-        description: event.description || 'No description provided',
-        date: new Date(event.scheduledStartTimestamp).toLocaleString(),
-        image: coverImageURL, // Add the cover image URL
-      };
-    });
-    
-    console.log(`Events fetched at ${new Date().toLocaleTimeString()}:`);
-    eventsData.forEach(event => console.log(`- ${event.name}, Date: ${event.date}, Image: ${event.image}`));
-  } catch (error) {
-    console.error('Error fetching events:', error);
-  }
-};
+    try {
+      const guild = await client.guilds.fetch(process.env.DISCORD_GUILD_ID);  // Replace with your Discord server's ID
+      const events = await guild.scheduledEvents.fetch();
+  
+      // Update the eventsData array
+      eventsData = events.map(event => {
+          // Use coverImageURL() to get the image URL if it exists
+          const coverImageURL = event.coverImageURL({ size: 1024 }) || 'Default image URL';  // Provide a default or fallback image
+  
+          return {
+            name: event.name,
+            organizer: event.creator?.displayName || 'Unknown organizer', // Optional chaining in case creator is null
+            image: coverImageURL,
+            description: event.description || 'No description provided',
+            date: new Date(event.scheduledStartTimestamp).toLocaleString(Locale.Hungarian),  // Convert to local time
+            participants: event.userCount
+          };
+        });
+  
+      console.log(`Events fetched at ${new Date().toLocaleTimeString()}:`);
+      eventsData.forEach(event => console.log(`- ${event.name}, Date: ${event.date}, Image: ${event.image}, Participants: ${event.participants}`));
+    } catch (error) {
+      console.error('Error fetching events:', error);
+    }
+  };
 
 // Call fetchEvents once on startup
 client.once('ready', () => {

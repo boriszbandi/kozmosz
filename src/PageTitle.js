@@ -1,5 +1,5 @@
 import React from 'react';
-import { Helmet } from 'react-helmet';
+import { HelmetProvider, Helmet } from 'react-helmet-async';
 import { useLocation } from 'react-router-dom';
 
 const PageTitle = () => {
@@ -8,9 +8,11 @@ const PageTitle = () => {
   const title = `Kozmosz - ${pageName.charAt(0).toUpperCase() + pageName.slice(1)}`;
 
   return (
-    <Helmet>
-      <title>{title}</title>
-    </Helmet>
+    <HelmetProvider>
+      <Helmet>
+        <title>{title}</title>
+      </Helmet>
+    </HelmetProvider>
   );
 };
 
