@@ -1,4 +1,9 @@
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import HomePage from './Home';
+import EventsPage from './Events';
+import Navbar from './Navbar';  // Import Navbar
+import PageTitle from './PageTitle';
 import './App.css';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 
@@ -46,11 +51,17 @@ const darkTheme = createTheme({
   },
 });
 
-
 function App() {
   return (
     <ThemeProvider theme={darkTheme}>
-      <HomePage />
+      <Router>
+        <PageTitle />
+        <Navbar />  {/* Use Navbar */}
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/events" element={<EventsPage />} />
+        </Routes>
+      </Router>
     </ThemeProvider>
   );
 }
