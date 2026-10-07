@@ -18,6 +18,9 @@ Top priority: fastest possible load. These rules override any design skill or DE
   `/img/*` is cached immutable for a year: a changed image gets a new file name.
 
 ## Pages
+- `content/` holds the verbatim texts of the old WordPress site (kozmosz.bme.hu) per page, plus a media
+  inventory. Use it as the source when building pages; never paraphrase it silently (typo fixes are
+  listed in content/README.md and need the user's OK).
 - New page: component in `src/pages.rs`, `<Route>` in `App` (src/app.rs).
 - If its HTML is identical for every request, add the path to `STATIC_PAGES`: it is rendered once at
   startup and served from memory, precompressed (src/server.rs `PageCache`).
