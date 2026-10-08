@@ -46,25 +46,19 @@ pub fn Programs() -> impl IntoView {
     view! {
         <DocMeta doc=page/>
         <PageHeader title=page.title.clone()/>
+        // Order: what's next, how to never miss one, then the archive (phones read it in this
+        // order; wide screens put the subscribe panel in a sticky column).
         <div class="container page-body programs">
-            <div class="programs-list">
-                <section aria-labelledby="kozelgo-programok">
-                    <h2 class="group-title" id="kozelgo-programok">"Közelgő programok"</h2>
-                    {upcoming}
-                </section>
-                {(!past.is_empty()).then(|| view! {
-                    <section class="events-past" aria-labelledby="legutobbi-programok">
-                        <h2 class="group-title" id="legutobbi-programok">"Legutóbbi programok"</h2>
-                        <EventList events=past today highlight_first=false/>
-                    </section>
-                })}
-            </div>
+            <section class="events-next" aria-labelledby="kozelgo-programok">
+                <h2 class="group-title" id="kozelgo-programok">"Közelgő programok"</h2>
+                {upcoming}
+            </section>
             <aside id="feliratkozas" class="subscribe" aria-label="Feliratkozás a naptárra">
                 // "Vagy iratkozz fel az online naptárunkra!"
                 <Blocks blocks=&page.intro/>
                 <a class="button button-signal" href=site::CALENDAR_SUBSCRIBE_GOOGLE_URL rel="noopener">
                     <Icon svg=icons::CALENDAR_BLANK/>
-                    "Kozmosz online naptár"
+                    "Google Naptár"
                 </a>
                 <a class="button button-line" href=site::CALENDAR_SUBSCRIBE_WEBCAL_URL>
                     "Apple Naptár, Outlook"
@@ -75,6 +69,12 @@ pub fn Programs() -> impl IntoView {
                     <Icon svg=icons::ARROW_UP_RIGHT/>
                 </a>
             </aside>
+            {(!past.is_empty()).then(|| view! {
+                <section class="events-past" aria-labelledby="legutobbi-programok">
+                    <h2 class="group-title" id="legutobbi-programok">"Legutóbbi programok"</h2>
+                    <EventList events=past today highlight_first=false/>
+                </section>
+            })}
         </div>
     }
 }
@@ -89,15 +89,18 @@ fn EventList(events: Vec<Event>, today: Option<Date>, highlight_first: bool) -> 
                 .map(|(i, event)| {
                     let next = highlight_first && i == 0;
                     let is_today = highlight_first && is_on(&event, today);
-                    view! { <li class="event" class:is-next=next><EventItem event is_today/></li> }
+                    let past = !highlight_first;
+                    view! { <li class="event" class:is-next=next><EventItem event is_today past/></li> }
                 })
                 .collect_view()}
         </ol>
     }
 }
 
+/// `past`: notes such as "more info on the announcements channel" are stale once an event is
+/// over, so past events show none.
 #[component]
-fn EventItem(event: Event, is_today: bool) -> impl IntoView {
+fn EventItem(event: Event, is_today: bool, past: bool) -> impl IntoView {
     let date = event.start.date;
     // Same-day events show their hours; longer ones their full range.
     let when = event.time_label().unwrap_or_else(|| {
@@ -115,7 +118,7 @@ fn EventItem(event: Event, is_today: bool) -> impl IntoView {
             {event.location.map(|location| view! {
                 <p class="where"><Icon svg=icons::MAP_PIN/><span>{location}</span></p>
             })}
-            {event.description.map(|text| view! { <p class="ev-note"><Description text/></p> })}
+            {event.description.filter(|_| !past).map(|text| view! { <p class="ev-note"><Description text/></p> })}
         </div>
         {is_today.then(|| view! { <span class="tag-today">"Ma"</span> })}
     }

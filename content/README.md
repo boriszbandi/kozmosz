@@ -62,7 +62,7 @@ Megjegyzések:
 | Google Naptár iframe (`bme.kozmosz@gmail.com`) | Programjaink | A szerver percenként letölti a naptár nyilvános ICS-ét, és sima HTML-listaként rendereli a következő eseményeket. Nincs iframe, JS és Google-süti, és gyorsabb. Mellé egy feliratkozó link. |
 | `.ics` letöltőgomb („Kozmosz online naptár”) | Programjaink | A naptár nyilvános ICS-címe vagy egy „Hozzáadás a Google Naptárhoz” link. |
 | Google Maps iframe | Elérhetőség | Statikus térképkép plusz „Megnyitás térképen” link (Google Maps / OpenStreetMap). Nincs külső betöltés. |
-| Google Drive galériák (igd plugin) | Projektek aloldalai | Letöltött, AVIF-re optimalizált képek, statikus rácsban. Nagyítás `<dialog>`-gal vagy egy kis islanddel. |
+| Google Drive galériák (igd plugin) | Projektek aloldalai | **Kész:** a szerver 10 percenként szinkronizálja a Drive-mappákat, és AVIF/JPEG-re kódolja a képeket (`src/drive/`). Minden képnek saját oldala van, lapozással. Lásd a fő README „Drive-galériák” részét. |
 | Integető kéz és lebegő ikonok (SVG + CSS animáció) | Kezdőlap | Ha kell, tisztán CSS-sel, `prefers-reduced-motion` mellett. |
 
 ## Talált hibák a régi oldalon

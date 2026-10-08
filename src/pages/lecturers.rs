@@ -90,7 +90,7 @@ pub fn Lecturers() -> impl IntoView {
                                     <Picture
                                         key=p.key
                                         alt=p.alt
-                                        sizes="(width > 1280px) 588px, (width >= 768px) 46vw, 92vw"
+                                        sizes="(width >= 1280px) 490px, (width >= 768px) 40vw, 92vw"
                                         class="lecturer-photo"
                                         eager={i < 2}
                                     />

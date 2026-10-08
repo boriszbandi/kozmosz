@@ -13,9 +13,10 @@ async fn main() {
     use kozmosz::{
         app::{shell, App, STATIC_PAGES},
         calendar::Feed,
+        drive::Library,
         server::{
             cache_control, redirects, serve_cached, serve_not_found, shutdown_signal,
-            spawn_calendar_refresh, CachePolicy, PageCache,
+            spawn_calendar_refresh, spawn_drive_refresh, CachePolicy, PageCache,
         },
     };
     use leptos::{logging::log, prelude::*};
@@ -45,6 +46,10 @@ async fn main() {
     // pages are rendered (giving up after 5 s), then every 10 minutes in the background.
     let mut feed = Feed::new();
     feed.refresh(Duration::from_secs(5)).await;
+    // Project galleries: the photos already encoded in the cache directory are shown at once;
+    // the Drive folders are synced in the background (spawn_drive_refresh below).
+    let library = Library::open();
+    let photos = library.files_dir();
 
     // Renders the cached pages; any other path renders the 404 page.
     let renderer = pages.clone().fallback({
@@ -59,6 +64,7 @@ async fn main() {
     });
     let cache = PageCache::new(renderer, STATIC_PAGES).await;
     spawn_calendar_refresh(feed, cache.clone());
+    spawn_drive_refresh(library, cache.clone());
 
     // Static files: precompressed .br/.gz when cargo-leptos made them (--precompress), except
     // /img and /fonts, whose formats are already compressed. Anything else gets the cached 404 page.
@@ -68,6 +74,7 @@ async fn main() {
     let images = ServeDir::new(&*options.site_root)
         .append_index_html_on_directories(false)
         .fallback(not_found.clone());
+    let drive = ServeDir::new(photos).append_index_html_on_directories(false).fallback(not_found.clone());
     let files = ServeDir::new(&*options.site_root)
         .append_index_html_on_directories(false)
         .precompressed_br()
@@ -80,6 +87,8 @@ async fn main() {
         .merge(pages)
         .route_service("/img/{*path}", images.clone())
         .route_service("/fonts/{*path}", images)
+        // nest_service strips "/drive": the cache directory holds <album>/<file> directly.
+        .nest_service("/drive", drive)
         .fallback_service(files)
         .layer(from_fn_with_state(cache, serve_cached))
         .layer(from_fn(redirects))

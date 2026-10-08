@@ -58,12 +58,44 @@
   --gap: 24px;
   --nav-h: 64px;
   --space: clamp(4.5rem, 8vw, 7.5rem);
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Type scale: eight steps. */
+  --fs-xs: 0.8125rem;
+  --fs-sm: 0.9375rem;
+  --fs-base: 1.0625rem;
+  --fs-lead: clamp(1.1875rem, 1.05rem + 0.5vw, 1.375rem);
+  --fs-h3: clamp(1.375rem, 1.2rem + 0.6vw, 1.625rem);
+  --fs-h2: clamp(2rem, 1.3rem + 2vw, 3.25rem);
+  --fs-h1: clamp(2.75rem, 1.6rem + 3.4vw, 4.5rem);
+  --fs-display: clamp(3.25rem, 1.4rem + 5.6vw, 6.75rem);
+
+  /* Spacing scale. */
+  --s1: 8px;
+  --s2: 16px;
+  --s3: 24px;
+  --s4: 40px;
+  --s5: 64px;
+  /* Corner radius of controls (glass): soft rectangles. Content frames stay square. */
+  --radius: 12px;
 }
 
 *,
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+::selection {
+  background: var(--signal);
+  color: var(--signal-ink);
+}
+
+a,
+summary,
+.button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html {
@@ -203,14 +235,61 @@ figure {
   color: var(--signal-ink);
 }
 
-/* Cross-document fade between pages, zero JavaScript (Chromium, Safari; ignored elsewhere). */
+/* Text for screen readers only. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Arrow icons pointing back: the right arrow mirrored (scale, so the hover nudge still composes). */
+.photo-back .icon,
+.photo-step:not(.photo-step-next) .icon {
+  scale: -1 1;
+}
+
+/* Page changes, zero JavaScript (cross-document view transitions: Chromium, Safari 18.2+;
+   elsewhere pages simply load). The header stays put, the old page dips out, the new one rises
+   into place, and named elements (the menu's glass pill, photos) travel between the two. */
 @view-transition {
   navigation: auto;
 }
 
-::view-transition-old(root),
+::view-transition-group(*) {
+  animation-duration: 0.45s;
+  animation-timing-function: var(--ease);
+}
+
+::view-transition-old(root) {
+  animation: vt-out 0.14s ease-in both;
+}
+
 ::view-transition-new(root) {
-  animation-duration: 180ms;
+  animation: vt-in 0.32s var(--ease) 0.06s both;
+}
+
+/* The menu pill: a little overshoot, like liquid settling. */
+::view-transition-group(nav-ink) {
+  animation-timing-function: cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+@keyframes vt-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes vt-in {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
 }
 
 /* ---------- Prose (the club's own texts) ---------- */
@@ -237,43 +316,113 @@ figure {
   margin-top: 36px;
 }
 
+/* Buttons: "Liquid Glass", the owner's request (2026-10-08), as soft rectangles (not pills). An approximation of Apple's
+   iOS 26 material: there is no official web version. Layers: a tint, a top sheen, a blurred and
+   saturated backdrop, a specular rim (::before, brighter top-left, as if lit from above) and a
+   light sweep on hover (::after). Content frames stay square; only controls are rounded. */
 .button {
+  --tint: rgb(255 255 255 / 0.06);
+  --rim: rgb(255 255 255 / 0.16);
+  --glow: rgb(0 0 0 / 0);
+  position: relative;
+  isolation: isolate;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   min-height: 50px;
-  padding: 0 22px;
-  border: 1px solid transparent;
+  padding: 0 24px;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0) 60%),
+    var(--tint);
+  -webkit-backdrop-filter: blur(14px) saturate(170%);
+  backdrop-filter: blur(14px) saturate(170%);
+  box-shadow:
+    inset 0 1px 0.5px rgb(255 255 255 / 0.4),
+    inset 0 -1px 1px rgb(255 255 255 / 0.08),
+    inset 0 0 0 1px var(--rim),
+    0 12px 32px -14px var(--glow),
+    0 2px 6px -2px rgb(0 0 0 / 0.55);
+  color: var(--heading);
   font: 700 1.0313rem/1.2 var(--font-heading);
   letter-spacing: 0.01em;
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  transition: box-shadow 0.2s ease, color 0.2s ease;
 }
 
-.button:active {
-  transform: translateY(1px);
+.button::before,
+.button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
 }
 
-.button-signal {
-  background: var(--signal);
-  color: var(--signal-ink);
+/* The rim: a 1px ring whose light falls off from the top-left and bottom-right edges. */
+.button::before {
+  padding: 1px;
+  background: linear-gradient(135deg, rgb(255 255 255 / 0.75), rgb(255 255 255 / 0) 32% 68%, rgb(255 255 255 / 0.35));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
 }
 
-.button-signal:hover {
-  background: var(--signal-hover);
-  color: var(--signal-ink);
+/* The sweep: a soft diagonal highlight parked off the left edge, crossing on hover. */
+.button::after {
+  background: linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 0.28) 48%, transparent 66%);
+  transform: translateX(-120%);
 }
 
-.button-line {
-  border-color: rgb(238 241 244 / 0.38);
-  background: rgb(10 12 15 / 0.4);
+.button:hover {
+  --rim: rgb(255 255 255 / 0.28);
   color: var(--heading);
 }
 
-.button-line:hover {
-  border-color: var(--heading);
+/* Tinted glass: the signal yellow deepening into amber, with a warm glow under it. */
+.button-signal {
+  --tint: rgb(255 214 102 / 0.9);
+  --rim: rgb(255 248 222 / 0.5);
+  --glow: rgb(255 184 56 / 0.6);
+  background:
+    radial-gradient(130% 170% at 18% -30%, rgb(255 252 238 / 0.9), rgb(255 252 238 / 0) 52%),
+    linear-gradient(180deg, rgb(255 226 128 / 0.96), rgb(255 186 72 / 0.94));
+  color: #1d1504;
+}
+
+.button-signal:hover {
+  --rim: rgb(255 252 238 / 0.75);
+  --glow: rgb(255 184 56 / 0.85);
+  color: #1d1504;
+}
+
+/* Clear glass. */
+.button-line {
+  --tint: rgb(255 255 255 / 0.05);
+}
+
+/* Without transparency (OS setting) or backdrop-filter: solid fills. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .button-line {
+    --tint: var(--bg-3);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .button {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .button-line {
+    --tint: var(--bg-3);
+  }
 }
 
 .link-arrow {
@@ -297,14 +446,20 @@ figure {
 
 /* ---------- Header and navigation ---------- */
 
+/* The header is transparent: only its controls (brand, menu) are glass chips, and the page
+   scrolls under them, which is where the glass shows. pointer-events pass through the empty
+   parts. The header itself carries no view-transition-name: that would make it a backdrop root,
+   and the chips' backdrop-filter would then blur nothing. The chips are named instead. */
 .site-header {
   position: sticky;
   top: 0;
   z-index: 20;
   height: var(--nav-h);
-  background: rgb(10 12 15 / 0.94);
-  border-bottom: 1px solid var(--line);
-  view-transition-name: site-header;
+  pointer-events: none;
+}
+
+.header-inner > * {
+  pointer-events: auto;
 }
 
 .header-inner {
@@ -317,16 +472,53 @@ figure {
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  height: 48px;
+  padding: 0 16px 0 8px;
+  border-radius: 16px;
   color: var(--heading);
-  font: 800 1.375rem/1 var(--font-heading);
+  font: 800 1.3125rem/1 var(--font-heading);
   letter-spacing: -0.01em;
   text-decoration: none;
+  view-transition-name: site-brand;
 }
 
 .brand img {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
+}
+
+/* Liquid Glass chips in the header (same material as .button, darker tint so text stays
+   readable over any photo scrolling underneath). */
+.brand,
+.nav-desktop .nav-list,
+.nav-mobile summary {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0.02) 60%), rgb(12 15 19 / 0.6);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  backdrop-filter: blur(16px) saturate(180%);
+  box-shadow:
+    inset 0 1px 0.5px rgb(255 255 255 / 0.28),
+    inset 0 -1px 1px rgb(255 255 255 / 0.06),
+    inset 0 0 0 1px rgb(255 255 255 / 0.1),
+    0 10px 28px -14px rgb(0 0 0 / 0.75);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .brand,
+  .nav-desktop .nav-list,
+  .nav-mobile summary {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background-color: var(--bg-2);
+  }
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .brand,
+  .nav-desktop .nav-list,
+  .nav-mobile summary {
+    background-color: var(--bg-2);
+  }
 }
 
 .nav-list,
@@ -336,33 +528,65 @@ figure {
   list-style: none;
 }
 
+/* Desktop menu: one glass bar floating in the header; its items are concentric soft
+   rectangles (outer radius = inner radius + padding). */
 .nav-desktop .nav-list {
   display: flex;
-  gap: 4px;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 16px;
+  view-transition-name: site-nav;
 }
 
 .nav-desktop .nav-item > a {
+  position: relative;
+  isolation: isolate;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: var(--nav-h);
-  padding: 0 14px;
-  border-bottom: 2px solid transparent;
-  color: var(--text);
+  height: 40px;
+  padding: 0 16px;
+  border-radius: var(--radius);
+  color: #dfe4e9;
   font: 600 0.9688rem/1 var(--font-body);
   text-decoration: none;
 }
 
 .nav-desktop .nav-item > a:hover {
   color: var(--heading);
-  border-bottom-color: var(--signal);
+  background: rgb(255 255 255 / 0.06);
 }
 
-/* Current page (and the parent of the current subpage): not signalled by colour alone. */
+/* Current page (and the parent of the current subpage): a yellow-tinted glass pill, not colour
+   alone. Its view-transition-name makes it glide from the old item to the new one. */
+.nav-ink {
+  display: none;
+}
+
+.nav-desktop .nav-ink {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  display: block;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgb(255 238 178 / 0.24), rgb(255 222 115 / 0.1));
+  box-shadow:
+    inset 0 1px 0.5px rgb(255 255 255 / 0.4),
+    inset 0 0 0 1px rgb(255 222 115 / 0.4),
+    0 6px 18px -8px rgb(255 196 64 / 0.45);
+  opacity: 0;
+}
+
 .nav-desktop .nav-item > a[aria-current="page"],
 .nav-desktop .has-sub:has(.nav-sub a[aria-current="page"]) > a {
   color: var(--heading);
-  border-bottom-color: var(--signal);
+  background: none;
+}
+
+.nav-desktop a[aria-current="page"] > .nav-ink,
+.nav-desktop .has-sub:has(.nav-sub a[aria-current="page"]) > a > .nav-ink {
+  opacity: 1;
+  view-transition-name: nav-ink;
 }
 
 .nav-item {
@@ -375,15 +599,28 @@ figure {
   color: var(--muted);
 }
 
+/* Submenu: a glass-look sheet. It sits inside the blurred menu bar (a backdrop root), so a
+   backdrop-filter here could not reach the page: it is nearly opaque instead. */
 .nav-desktop .nav-sub {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 10px);
   min-width: 15rem;
-  padding: 8px 0;
-  background: var(--bg-2);
-  border: 1px solid var(--line-2);
-  border-top: 2px solid var(--signal);
+  padding: 6px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.07), rgb(255 255 255 / 0.02)), rgb(16 20 25 / 0.96);
+  box-shadow:
+    inset 0 1px 0.5px rgb(255 255 255 / 0.2),
+    inset 0 0 0 1px rgb(255 255 255 / 0.08),
+    0 18px 40px -16px rgb(0 0 0 / 0.8);
   display: none;
+}
+
+/* Bridges the gap to the submenu, so it does not close on the way down. */
+.nav-desktop .nav-sub::before {
+  content: "";
+  position: absolute;
+  inset: -12px 0 auto;
+  height: 12px;
 }
 
 /* The last nav item sits at the right edge: open its submenu leftwards. */
@@ -398,19 +635,21 @@ figure {
 
 .nav-desktop .nav-sub a {
   display: block;
-  padding: 10px 18px;
+  padding: 10px 14px;
+  border-radius: 10px;
   color: var(--text);
   text-decoration: none;
 }
 
-.nav-desktop .nav-sub a:hover,
-.nav-desktop .nav-sub a[aria-current="page"] {
+.nav-desktop .nav-sub a:hover {
   color: var(--heading);
-  background: var(--signal-wash);
+  background: rgb(255 255 255 / 0.07);
 }
 
 .nav-desktop .nav-sub a[aria-current="page"] {
-  box-shadow: inset 2px 0 0 var(--signal);
+  color: var(--heading);
+  background: rgb(255 222 115 / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(255 222 115 / 0.35);
 }
 
 /* Zero-JS mobile menu: <details> opens a full-screen sheet under the header. */
@@ -418,14 +657,16 @@ figure {
   display: none;
 }
 
+/* The menu button is a glass chip too. */
 .nav-mobile summary {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   height: 44px;
-  padding: 0 12px;
-  border: 1px solid var(--line-2);
+  padding: 0 16px;
+  border-radius: var(--radius);
   color: var(--heading);
+  view-transition-name: site-menu;
   font: 600 0.9375rem/1 var(--font-body);
   list-style: none;
   cursor: pointer;
@@ -445,7 +686,10 @@ figure {
 }
 
 .nav-mobile details[open] summary {
-  border-color: var(--signal);
+  box-shadow:
+    inset 0 1px 0.5px rgb(255 255 255 / 0.3),
+    inset 0 0 0 1px rgb(255 222 115 / 0.55),
+    0 10px 28px -14px rgb(0 0 0 / 0.75);
 }
 
 .nav-mobile-panel {
@@ -487,11 +731,14 @@ figure {
 
 /* ---------- Home: hero with the next-event panel ---------- */
 
+/* Photo heroes start under the (transparent) header. */
 .hero {
   position: relative;
   isolation: isolate;
   display: flex;
-  min-height: clamp(660px, calc(100svh - var(--nav-h)), 860px);
+  min-height: clamp(724px, 100svh, 924px);
+  margin-top: calc(-1 * var(--nav-h));
+  padding-top: var(--nav-h);
   overflow: hidden;
 }
 
@@ -518,6 +765,50 @@ figure {
     linear-gradient(90deg, rgb(10 12 15 / 0.6) 0%, rgb(10 12 15 / 0) 55%);
 }
 
+/* A satellite pass, once per visit to the page: a short streak swinging on a huge radius (pivot
+   far below), so it crosses the sky on a shallow arc, tangent to its path, under the scrim so it
+   dims towards the edges. It lasts under 5 s (WCAG 2.2.2 needs no pause control then).
+   Transform and opacity only; nothing without motion. */
+.pass {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pass {
+    position: absolute;
+    top: calc(var(--nav-h) + 2.5rem);
+    left: 58%;
+    /* Same layer as the photo but later in the DOM: above it, under the scrim. */
+    z-index: -2;
+    display: block;
+    width: 72px;
+    height: 2px;
+    margin-left: -36px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, rgb(238 241 244 / 0), rgb(238 241 244 / 0.85));
+    transform-origin: 50% 110vmax;
+    opacity: 0;
+    animation: pass 4.6s cubic-bezier(0.3, 0.1, 0.7, 0.9) 1.6s both;
+  }
+}
+
+@keyframes pass {
+  0% {
+    rotate: -9deg;
+    opacity: 0;
+  }
+
+  12%,
+  80% {
+    opacity: 1;
+  }
+
+  100% {
+    rotate: 8deg;
+    opacity: 0;
+  }
+}
+
 .hero-inner {
   display: flex;
   flex-direction: column;
@@ -542,46 +833,50 @@ figure {
   line-height: 1.5;
 }
 
-.hero-lead p + p {
-  margin-top: 0.6em;
+/* The two lead paragraphs read as one block (no words changed). */
+.hero-lead {
+  max-width: 38ch;
 }
 
-/* The next programme, docked on the horizon of the photo. */
+.hero-lead p {
+  display: inline;
+}
+
+.hero-lead p + p::before {
+  content: " ";
+}
+
+/* The next programme: a frameless readout on the photo's horizon (its rule and tick come from
+   the section system below). */
 .signal {
-  background: rgb(13 16 20 / 0.94);
-  border: 1px solid var(--line-2);
-  border-top: 2px solid var(--signal);
-}
-
-.signal-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 24px;
-  border-bottom: 1px solid var(--line);
+  --rule: rgb(238 241 244 / 0.18);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 14px clamp(32px, 5vw, 64px);
 }
 
 .signal-label {
-  color: var(--text);
-  font: 600 0.9375rem/1 var(--font-body);
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font: 600 var(--fs-sm)/1 var(--font-body);
 }
 
 .signal-link {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-left: auto;
+  justify-self: end;
   color: var(--text);
-  font: 600 0.9375rem/1 var(--font-body);
+  font: 600 var(--fs-sm)/1 var(--font-body);
   text-decoration: none;
 }
 
 .signal-link:hover {
   color: var(--heading);
-}
-
-.signal-link .icon {
-  color: var(--signal);
 }
 
 .tag-today {
@@ -594,33 +889,19 @@ figure {
   text-transform: uppercase;
 }
 
-.signal-body {
-  display: grid;
-  grid-template-columns: 5fr 5fr 3fr;
-}
-
-.signal-body > * {
-  padding: 22px 24px 24px;
-}
-
-.signal-body > * + * {
-  border-left: 1px solid var(--line);
-}
-
 .signal-when {
   display: grid;
   grid-template-columns: auto auto;
   justify-content: start;
-  align-content: start;
   column-gap: 24px;
   row-gap: 8px;
 }
 
 .signal-when .big {
   color: var(--heading);
-  font: 500 clamp(2rem, 1.4rem + 1.5vw, 3rem)/1 var(--font-mono);
+  font: 500 var(--fs-h2)/1 var(--font-mono);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.045em;
   white-space: nowrap;
 }
 
@@ -631,11 +912,11 @@ figure {
 .signal-when .sub {
   grid-column: 1 / -1;
   color: var(--muted);
-  font-size: 0.9375rem;
+  font-size: var(--fs-sm);
 }
 
 .signal-what h2 {
-  font-size: clamp(1.75rem, 1.3rem + 1.1vw, 2.375rem);
+  font-size: clamp(1.5rem, 1.2rem + 1vw, 2.125rem);
   line-height: 1.05;
   letter-spacing: -0.02em;
 }
@@ -652,37 +933,36 @@ figure {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 10px;
   color: var(--text);
   font-size: 1rem;
 }
 
 .where .icon {
   margin-top: 0.2em;
-  color: var(--signal);
-}
-
-.signal-note {
-  display: flex;
-  align-items: center;
   color: var(--muted);
-  font-size: 0.9688rem;
 }
 
 .signal-what h2,
-.signal-note,
 .where,
 .ev-title {
   overflow-wrap: anywhere;
 }
 
-.signal-body > * {
-  min-width: 0;
+.signal-empty {
+  grid-column: 1 / -1;
+  color: var(--text);
 }
 
-.signal-empty {
-  padding: 22px 24px 24px;
-  color: var(--text);
+/* Arrow icons are quiet until hovered: yellow marks actions, times and frequencies. */
+.link-arrow .icon,
+.signal-link .icon,
+.photo-back .icon {
+  color: var(--muted);
+}
+
+:is(.link-arrow, .signal-link, .photo-back):hover .icon {
+  color: var(--signal);
 }
 
 /* ---------- Sections ---------- */
@@ -702,37 +982,75 @@ main > .section {
   contain-intrinsic-size: auto 900px;
 }
 
+/* One section system: a hairline with a signal tick over every title (and over the panels that
+   open a block). The hairline draws out of the tick as a section title scrolls in; the text
+   itself never moves. */
+:is(.section-title, .group-title, .subscribe, .signal) {
+  position: relative;
+  padding-top: var(--s3);
+}
+
+:is(.section-title, .group-title, .subscribe, .signal)::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: var(--rule, var(--line-2));
+  transform-origin: left;
+}
+
+:is(.section-title, .group-title, .subscribe, .signal)::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40px;
+  height: 2px;
+  background: var(--signal);
+}
+
 .section-title {
-  padding-top: 22px;
-  border-top: 1px solid var(--line-2);
-  font-size: clamp(2rem, 1.3rem + 1.9vw, 3.125rem);
+  margin-bottom: var(--s4);
+  font-size: var(--fs-h2);
   line-height: 1.05;
   letter-spacing: -0.025em;
+  view-timeline: --title block;
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .section-title::before {
+      animation: rule-draw linear both;
+      animation-timeline: --title;
+      animation-range: entry 0% cover 25%;
+    }
+  }
+}
+
+@keyframes rule-draw {
+  from {
+    scale: 0 1;
+  }
 }
 
 .section-intro {
   max-width: 64ch;
-  margin-top: 28px;
 }
 
 .section-intro p + p {
   margin-top: 1em;
 }
 
-/* A paragraph set as a typographic statement: large, but at most ~36em per line. */
+/* A paragraph set as a typographic statement. */
 .statement {
-  max-width: 36em;
+  max-width: 34em;
   color: var(--heading);
-  font: 500 clamp(1.25rem, 1.05rem + 0.6vw, 1.5rem)/1.45 var(--font-heading);
+  font: 500 var(--fs-lead)/1.5 var(--font-heading);
   letter-spacing: -0.005em;
 }
 
-.section-title + .statement {
-  margin-top: 36px;
-}
-
+/* Photos are not boxed: the bg-2 tile only shows while one loads. */
 .frame {
-  border: 1px solid var(--line);
   background: var(--bg-2);
 }
 
@@ -740,68 +1058,76 @@ main > .section {
   width: 100%;
 }
 
-.community-row {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: var(--gap);
-  align-items: center;
-  margin-top: 64px;
+/* A photo as a full-width band that dissolves into the night on every edge, like the hero. */
+.band {
+  width: min(100vw, 1680px);
+  margin-block: var(--s5) var(--s4);
+  margin-inline: calc((100% - min(100vw, 1680px)) / 2);
 }
 
-.community-row .frame {
-  grid-column: 1 / span 7;
+.band img {
+  width: 100%;
+  height: clamp(300px, 40vw, 620px);
+  object-fit: cover;
+  object-position: 50% 40%;
+  background: none;
+  -webkit-mask-image:
+    linear-gradient(180deg, transparent, #000 14%, #000 80%, transparent),
+    linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(180deg, transparent, #000 14%, #000 80%, transparent),
+    linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-composite: intersect;
 }
 
 .community-text {
-  grid-column: 8 / span 5;
-  padding-left: 8px;
+  max-width: 34rem;
 }
 
-/* Projects: introduction with the Moon bleeding off the right edge, then the bento. */
+/* Projects: the introduction with the Moon bleeding off the right edge, then the bento. */
 .projects-head {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(12, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--gap);
-  align-items: center;
-  /* Tall enough for the Moon, so it never reaches into the bento. */
-  min-height: min(42vw, 520px);
+  align-items: start;
+  /* As tall as the Moon (1120 x 1260), so it never reaches into the bento. */
+  min-height: calc(min(36vw, 440px) * 1.125);
 }
 
 .projects-intro {
   position: relative;
   z-index: 1;
-  grid-column: 1 / span 7;
 }
 
 .moon {
   position: absolute;
-  top: 50%;
+  top: 0;
   right: calc(-1 * var(--gutter) - 6vw);
   z-index: 0;
-  width: min(42vw, 520px);
-  transform: translateY(-50%);
+  width: min(36vw, 440px);
   pointer-events: none;
 }
 
-/* The image already carries the page background: no frame, no placeholder tile. */
+/* The image already carries the page background: no placeholder tile. */
 .moon picture img {
   background: none;
 }
 
 .moon figcaption {
   position: absolute;
+  right: calc(var(--gutter) + 6vw);
   bottom: 0;
-  left: 12%;
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
 }
 
 .bento {
   display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: var(--gap);
-  margin-top: 56px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s5) var(--gap);
+  margin-top: var(--s5);
 }
 
 .page-body .bento {
@@ -812,21 +1138,12 @@ main > .section {
   position: relative;
   display: flex;
   flex-direction: column;
-  border-top: 1px solid var(--line-2);
-}
-
-.cell-astro {
-  grid-column: 1 / span 8;
-}
-
-.cell-sstv {
-  grid-column: 9 / span 4;
 }
 
 .cell-media {
   position: relative;
   overflow: hidden;
-  margin-top: 24px;
+  background: var(--bg-2);
 }
 
 .cell-astro .cell-media {
@@ -858,7 +1175,8 @@ main > .section {
 }
 
 .cell-title {
-  font-size: 1.625rem;
+  width: fit-content;
+  font-size: var(--fs-h3);
   line-height: 1.1;
   letter-spacing: -0.015em;
 }
@@ -883,7 +1201,7 @@ main > .section {
   outline-offset: 4px;
 }
 
-.cell:not(.cell-plate):hover .cell-title {
+.cell:hover .cell-title {
   color: var(--signal);
 }
 
@@ -894,114 +1212,87 @@ main > .section {
   line-height: 1.6;
 }
 
-.data-line {
-  display: flex;
-  gap: 18px;
-  margin-top: 16px;
+/* Weather satellites: a dark readout row (the downlinks in the signal colour). */
+.cell-noaa {
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line-2);
+}
+
+.cell-noaa .cell-text {
+  padding-top: 0;
+}
+
+.cell .readout {
+  margin-top: var(--s3);
+}
+
+/* Readout: the club's real data (frequencies, modes, counts) in ruled cells. */
+.readout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--s3);
+  margin: 0;
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line-2);
+}
+
+.readout dt {
   color: var(--muted);
-  font: 500 0.875rem/1 var(--font-mono);
+  font: 500 var(--fs-xs)/1.2 var(--font-body);
 }
 
-.data-line strong {
+.readout dd {
+  margin: 10px 0 0;
   color: var(--heading);
-  font-weight: 500;
+  font: 600 var(--fs-base)/1.3 var(--font-heading);
 }
 
-/* Weather satellites: a solid yellow spec plate with the downlink frequencies. */
-.cell-plate {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: subgrid;
-  align-items: stretch;
-  margin-top: 8px;
-  border-top: 0;
-  background: var(--signal);
-  color: var(--signal-ink);
-}
-
-.cell-plate .cell-text {
-  grid-column: 1 / span 5;
-  align-self: center;
-  padding: 32px 32px 36px;
-}
-
-.cell-plate .cell-title,
-.cell-plate .excerpt {
-  color: var(--signal-ink);
-}
-
-.cell-plate:hover .cell-title a {
-  text-decoration: underline 2px;
-  text-underline-offset: 5px;
-}
-
-.cell-plate:has(.stretched-link:focus-visible) {
-  outline-color: var(--heading);
-}
-
-.freqs {
-  grid-column: 6 / -1;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  margin: 0;
-}
-
-.freqs div {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 14px;
-  padding: 32px 24px;
-  border-left: 1px solid rgb(10 12 15 / 0.22);
-}
-
-.freqs dt {
-  font: 600 0.875rem/1 var(--font-mono);
-}
-
-.freqs dd {
-  margin: 0;
-  font: 600 clamp(1.5rem, 0.9rem + 1.1vw, 2.125rem)/1 var(--font-mono);
+.readout dd.mono {
+  font: 500 var(--fs-h3)/1 var(--font-mono);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.03em;
   white-space: nowrap;
 }
 
-.freqs dd span {
-  font-size: 0.875rem;
+.readout dd.freq {
+  color: var(--signal);
+}
+
+.readout dd span {
+  color: var(--muted);
+  font-size: 0.5em;
   letter-spacing: 0;
 }
 
 /* Lectures: every lecturer as one line-up, next to one featured photo. */
 .lectures {
   display: grid;
-  grid-template-columns: repeat(12, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--gap);
   align-items: start;
-  margin-top: 40px;
 }
 
-.lineup-wrap {
-  grid-column: 1 / span 7;
-}
-
+/* Separators lead each name; the ones at line starts are clipped, so no line ends on a "/". */
 .lineup {
   display: flex;
   flex-wrap: wrap;
   gap: 0.15em 0;
-  margin: 0 0 32px;
+  margin: 0 0 var(--s4) -1.1em;
   padding: 0;
   list-style: none;
+  clip-path: inset(-0.5em -0.5em -0.5em 1.1em);
   font: 700 clamp(1.5rem, 1.1rem + 1.3vw, 2.375rem)/1.3 var(--font-heading);
   letter-spacing: -0.02em;
 }
 
-.lineup li:not(:last-child)::after {
+.lineup li::before {
   content: "/";
   content: "/" / "";
-  margin-inline: 0.35em;
+  display: inline-block;
+  width: 1.1em;
   color: var(--line-2);
   font-weight: 500;
+  text-align: center;
 }
 
 .lineup a {
@@ -1013,21 +1304,23 @@ main > .section {
   color: var(--signal);
 }
 
-.lecture-feature {
-  grid-column: 9 / span 4;
+.lineup a:focus-visible {
+  outline: none;
+  text-decoration: underline 2px var(--signal);
+  text-underline-offset: 0.2em;
 }
 
 .lecture-feature img {
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 3 / 2;
   object-fit: cover;
   object-position: 72% 50%;
 }
 
 .lecture-feature figcaption {
-  padding: 18px 20px 20px;
-  border-top: 1px solid var(--line);
+  padding-top: var(--s2);
+  background: var(--bg);
   color: var(--muted);
-  font-size: 0.9375rem;
+  font-size: var(--fs-sm);
   line-height: 1.55;
 }
 
@@ -1038,6 +1331,88 @@ main > .section {
   font: 700 1.1875rem/1.2 var(--font-heading);
 }
 
+/* Wider screens: twelve columns. Below 768px no grid places anything (one column). */
+@media (width >= 768px) {
+  .projects-head,
+  .bento,
+  .lectures {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+
+  .projects-intro {
+    grid-column: 1 / span 7;
+  }
+
+  .community-text {
+    margin-left: auto;
+  }
+
+  .cell-astro {
+    grid-column: 1 / span 7;
+  }
+
+  .cell-sstv {
+    grid-column: 8 / span 5;
+  }
+
+  .cell-noaa {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: subgrid;
+    align-items: center;
+  }
+
+  .cell-noaa .cell-text {
+    grid-column: 1 / span 5;
+  }
+
+  .cell-noaa .readout {
+    grid-column: 7 / -1;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .lineup-wrap {
+    grid-column: 1 / span 7;
+  }
+
+  .lecture-feature {
+    grid-column: 8 / span 5;
+  }
+}
+
+@media (width >= 1024px) {
+  .cell-astro {
+    grid-column: 1 / span 8;
+  }
+
+  .cell-sstv {
+    grid-column: 9 / span 4;
+  }
+
+  .lecture-feature {
+    grid-column: 9 / span 4;
+  }
+
+  .lecture-feature img {
+    aspect-ratio: 4 / 5;
+  }
+}
+
+/* Card into page: the astro card's photo grows into the astrophoto page's header, and every
+   card title flies into its page title (names set inline per project). */
+.cell-astro .cell-media,
+.page-hero {
+  view-transition-name: p-asztro;
+}
+
+::view-transition-old(p-asztro),
+::view-transition-new(p-asztro) {
+  height: 100%;
+  object-fit: cover;
+}
+
 /* ---------- Inner pages ---------- */
 
 .page-head {
@@ -1045,7 +1420,8 @@ main > .section {
 }
 
 .page-title {
-  font-size: clamp(2.5rem, 1.5rem + 3.2vw, 4.25rem);
+  width: fit-content;
+  font-size: var(--fs-h1);
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.035em;
@@ -1074,7 +1450,7 @@ main > .section {
   max-width: 50ch;
   margin-top: 18px;
   color: var(--muted);
-  font-size: 1.2rem;
+  font-size: var(--fs-lead);
 }
 
 .page-body {
@@ -1087,9 +1463,10 @@ main > .section {
   isolation: isolate;
   display: flex;
   align-items: flex-end;
-  min-height: clamp(420px, 62svh, 640px);
+  min-height: clamp(360px, calc(46svh + var(--nav-h)), 600px);
+  margin-top: calc(-1 * var(--nav-h));
+  padding-top: var(--nav-h);
   overflow: hidden;
-  margin-bottom: 24px;
 }
 
 .page-hero-photo {
@@ -1111,176 +1488,237 @@ main > .section {
   inset: 0;
   z-index: -1;
   background:
-    linear-gradient(180deg, rgb(10 12 15 / 0.2) 0%, rgb(10 12 15 / 0.35) 45%, var(--bg) 100%),
+    linear-gradient(180deg, rgb(10 12 15 / 0.55) 0%, rgb(10 12 15 / 0.2) 18%, rgb(10 12 15 / 0.35) 45%, var(--bg) 100%),
     linear-gradient(90deg, rgb(10 12 15 / 0.75) 0%, rgb(10 12 15 / 0) 65%);
 }
 
-/* SSTV: one received frame next to the title and the reception data. */
-.project-split {
+/* Project pages: the lead next to a vertical readout, then the gallery. */
+.project-intro {
   display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: var(--gap);
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s4);
+  margin-bottom: var(--s5);
 }
 
-.project-split .page-head {
-  grid-column: 1 / span 7;
-  padding-inline: 0;
+.project-intro .lead {
+  max-width: 62ch;
+  color: var(--text);
+  font-size: var(--fs-base);
+  line-height: 1.7;
 }
 
-.project-frame {
-  grid-column: 8 / -1;
-}
+@media (width >= 1024px) {
+  .project-intro {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
 
-.project-frame img {
-  aspect-ratio: 640 / 496;
-  object-fit: cover;
-}
+  .project-intro .lead {
+    grid-column: 1 / span 7;
+  }
 
-.datarail {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, auto));
-  justify-content: start;
-  margin: 40px 0 0;
-  border-block: 1px solid var(--line-2);
-}
-
-.datarail div {
-  padding: 16px 28px 18px;
-}
-
-.datarail div:first-child {
-  padding-left: 0;
-}
-
-.datarail div + div {
-  border-left: 1px solid var(--line);
-}
-
-.datarail dt {
-  color: var(--muted);
-  font-size: 0.875rem;
-}
-
-.datarail dd {
-  margin: 8px 0 0;
-  color: var(--heading);
-  font: 600 1.1875rem/1.3 var(--font-heading);
-}
-
-.datarail dd.mono {
-  font: 500 1.375rem/1.2 var(--font-mono);
-  letter-spacing: -0.02em;
+  .readout-v {
+    grid-column: 9 / span 4;
+    grid-template-columns: minmax(0, 1fr);
+    align-self: start;
+  }
 }
 
 .project-text {
-  margin-bottom: 48px;
+  max-width: 62ch;
+  margin-bottom: var(--s5);
 }
 
 .block-title {
-  margin: 48px 0 20px;
-  font-size: 1.75rem;
+  margin: var(--s5) 0 var(--s3);
+  font-size: var(--fs-h3);
 }
 
 .empty-note {
-  max-width: 60ch;
-  padding: 20px 24px;
-  border: 1px dashed var(--line-2);
   color: var(--muted);
 }
 
-/* Galleries: framed images with a monospace caption (reception time or credit). */
+/* Galleries: a justified wall. Every row has one height; each tile grows in proportion to its
+   aspect ratio (--r, set per tile), so nothing is cropped. In big walls ::after soaks up the
+   last row's free space, so a lone last photo is not blown up; small ones fill their row(s).
+   No frames: the photos are the subject. */
 .gallery {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
-  gap: var(--gap);
+  --row: 240px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+.gallery:has(> li:nth-child(7))::after {
+  content: "";
+  flex: 1000000 1 0;
+}
+
+/* flex-grow is the ratio scaled up: rows share their free space in proportion to the ratios,
+   and a row whose ratios add up to less than 1 still fills its width. */
+.gallery li {
+  flex: calc(var(--r) * 100) 1 calc(var(--r) * var(--row));
+  min-width: 0;
+}
+
 .gallery figure {
-  height: 100%;
-  border: 1px solid var(--line);
-  background: var(--bg-2);
+  margin: 0;
 }
 
 .gallery a {
+  position: relative;
   display: block;
+  overflow: clip;
 }
 
 .gallery img {
   width: 100%;
-  transition: opacity 0.15s ease;
-}
-
-.gallery:not(.gallery-masonry) img {
-  aspect-ratio: 4 / 3;
+  height: auto;
+  aspect-ratio: var(--r);
   object-fit: cover;
 }
 
-.rxlog:not(.gallery-masonry) img {
-  aspect-ratio: 640 / 496;
+/* Row height per breakpoint; keep in step with ROW_* in src/media.rs (tile sizes). */
+@media (width < 1280px) {
+  .gallery {
+    --row: 18vw;
+  }
 }
 
-.gallery a:hover img {
-  opacity: 0.85;
+@media (width < 768px) {
+  /* Two radio frames (4:3) per row on a 360px-wide phone. */
+  .gallery {
+    --row: 120px;
+    gap: 6px;
+  }
 }
 
+/* Captions: prose for photos, small mono for reception times (real data). */
 .gallery figcaption {
-  padding: 10px 12px 11px;
-  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.rxlog figcaption {
+  min-height: calc(1.3em + 8px);
   color: var(--text);
-  font: 500 0.8125rem/1.4 var(--font-mono);
+  font: 500 0.8125rem/1.3 var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
-/* Mixed photo shapes keep their own aspect ratio. */
-.gallery-masonry {
-  display: block;
-  columns: 3 280px;
-  column-gap: var(--gap);
+/* Hover/focus: a viewfinder lock closes in on the tile (four corner brackets in the signal
+   colour); the tile you returned to from its photo page (:target) stays locked. */
+.gallery a::before {
+  --b: 14px;
+  content: "";
+  position: absolute;
+  inset: 10px;
+  z-index: 1;
+  border: 1px solid var(--signal);
+  -webkit-mask: conic-gradient(at var(--b) var(--b), #0000 75%, #000 0) 0 0 / calc(100% - var(--b)) calc(100% - var(--b));
+  mask: conic-gradient(at var(--b) var(--b), #0000 75%, #000 0) 0 0 / calc(100% - var(--b)) calc(100% - var(--b));
+  opacity: 0;
+  scale: 1.08;
+  pointer-events: none;
 }
 
-.gallery-masonry li {
-  margin-bottom: var(--gap);
-  break-inside: avoid;
+.gallery a:focus-visible::before,
+.gallery li:target a::before {
+  opacity: 1;
+  scale: 1;
 }
 
-/* About */
-.about {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: var(--gap);
-  align-items: center;
+@media (hover: hover) {
+  .gallery a:hover::before {
+    opacity: 1;
+    scale: 1;
+  }
 }
 
-.about .frame {
-  grid-column: 1 / span 7;
+@media (prefers-reduced-motion: no-preference) {
+  .gallery a::before {
+    transition: opacity 0.2s ease, scale 0.4s var(--ease);
+  }
+
+  .gallery img {
+    transition: scale 0.6s var(--ease);
+  }
+
+  @media (hover: hover) {
+    .gallery a:hover img {
+      scale: 1.03;
+    }
+  }
 }
 
-.about-text {
-  grid-column: 8 / span 5;
+/* Radio frames are "received" line by line as they scroll into view: a 1px signal scan line runs
+   down the frame, and the part not yet "received" is only dimmed, never hidden. A tile fully in
+   view is fully received. The base state is the plain image; the effect exists only with
+   scroll-driven animation support and motion allowed. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .rxlog li {
+      view-timeline: --rx block;
+    }
+
+    .rxlog a::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(var(--signal) 0 1px, rgb(255 222 115 / 0.16) 1px, rgb(10 12 15 / 0.6) 18px);
+      translate: 0 101%;
+      animation: scan linear both;
+      animation-timeline: --rx;
+      animation-range: entry 0% entry 100%;
+    }
+  }
 }
 
-.about-text .statement {
-  font-size: clamp(1.125rem, 1rem + 0.4vw, 1.3125rem);
+@keyframes scan {
+  from {
+    translate: 0 0;
+  }
+}
+
+/* About: the group photo as a band under the title, then the statement at reading measure. */
+.band-lead {
+  margin-top: 0;
+}
+
+.band-lead img {
+  height: clamp(300px, 52vw, 760px);
+  object-position: 50% 55%;
+}
+
+.about-text .statement + .statement {
+  margin-top: 1em;
 }
 
 /* Contact */
 .contact {
   display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: var(--gap);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s4) var(--gap);
   align-items: start;
 }
 
-.contact-text {
-  grid-column: 1 / span 6;
-}
+@media (width >= 768px) {
+  .contact {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
 
-.contact > .frame {
-  grid-column: 8 / -1;
+  .contact-text {
+    grid-column: 1 / span 6;
+  }
+
+  .contact > .frame {
+    grid-column: 8 / -1;
+  }
 }
 
 .contact-text > .prose:first-child p {
@@ -1307,7 +1745,7 @@ main > .section {
 
 .contact-list dt {
   color: var(--muted);
-  font-size: 0.9375rem;
+  font-size: var(--fs-sm);
 }
 
 .contact-list dd {
@@ -1330,30 +1768,46 @@ main > .section {
   color: var(--signal);
 }
 
-/* Lecturers page */
+/* /elerhetoseg shows the address and e-mail itself: the footer does not repeat them. */
+body:has(.contact) .footer-contact {
+  visibility: hidden;
+}
+
+/* Lecturers page: an index, one row per person, separated only by a rule. Arriving from a
+   name in the home line-up (#slug), the signal tick marks the right person. */
 .lecturers {
-  display: grid;
-  gap: var(--gap);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-@media (width >= 768px) {
-  .lecturers {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 .lecturer {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--line);
-  background: var(--bg-2);
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s3) var(--gap);
+  align-items: start;
+  padding-block: var(--s5);
+  border-top: 1px solid var(--line);
 }
 
-.lecturer:target {
-  border-color: var(--signal);
+.lecturer:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.lecturer:target::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 40px;
+  height: 2px;
+  background: var(--signal);
+}
+
+.lecturer-photo {
+  background: var(--bg-2);
 }
 
 .lecturer-photo img {
@@ -1362,18 +1816,13 @@ main > .section {
   object-fit: cover;
 }
 
-.lecturer-body {
-  padding: 22px 24px 26px;
-  border-top: 1px solid var(--line);
-}
-
 .lecturer-body h2 {
-  font-size: 1.5rem;
+  font-size: var(--fs-h3);
 }
 
 .lecturer-title {
   margin: 6px 0 12px;
-  color: var(--signal);
+  color: var(--heading);
   font-weight: 600;
 }
 
@@ -1381,26 +1830,51 @@ main > .section {
   margin-top: 10px;
 }
 
-/* Programs: date blocks, the next event highlighted, subscribe panel alongside. */
+@media (width >= 768px) {
+  .lecturer {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+
+  .lecturer-photo {
+    grid-column: 1 / span 5;
+  }
+
+  .lecturer-body {
+    grid-column: 7 / span 6;
+  }
+}
+
+/* Programs: the next event, the subscribe panel, then a quieter archive. */
 .programs {
   display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: var(--gap);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s5) var(--gap);
   align-items: start;
 }
 
-.programs-list {
-  grid-column: 1 / span 7;
+@media (width >= 1024px) {
+  .programs {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+
+  .events-next,
+  .events-past {
+    grid-column: 1 / span 7;
+  }
+
+  .subscribe {
+    position: sticky;
+    top: calc(var(--nav-h) + var(--s3));
+    grid-column: 9 / span 4;
+    grid-row: 1 / span 2;
+    align-self: start;
+  }
 }
 
 .group-title {
-  margin-bottom: 14px;
-  font-size: 1.25rem;
+  margin-bottom: var(--s3);
+  font-size: var(--fs-h3);
   letter-spacing: -0.01em;
-}
-
-.events-past {
-  margin-top: 56px;
 }
 
 .events {
@@ -1411,17 +1885,22 @@ main > .section {
 
 .event {
   display: grid;
-  grid-template-columns: 6.5rem 1fr auto;
+  grid-template-columns: 6.5rem minmax(0, 1fr) auto;
   column-gap: 28px;
   padding: 24px 0;
   border-top: 1px solid var(--line);
 }
 
+.events > .event:first-child {
+  border-top: 0;
+}
+
+/* The next event: the columns stay aligned with the list, the highlight bleeds into the gutter. */
 .event.is-next {
-  padding: 24px 24px 26px;
-  border: 1px solid var(--line-2);
-  border-left: 2px solid var(--signal);
-  background: linear-gradient(90deg, var(--signal-wash), transparent 60%);
+  margin-inline: -24px;
+  padding: 24px;
+  box-shadow: inset 2px 0 var(--signal);
+  background: linear-gradient(90deg, var(--signal-wash), transparent 70%);
 }
 
 .ev-date {
@@ -1449,37 +1928,51 @@ main > .section {
 
 .ev-wd {
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: var(--fs-xs);
 }
 
 .ev-time {
   color: var(--text);
-  font: 500 0.9375rem/1.4 var(--font-mono);
+  font: 500 var(--fs-sm)/1.4 var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
 .ev-title {
   margin-top: 6px;
-  font-size: 1.375rem;
+  font-size: var(--fs-h3);
   line-height: 1.15;
   letter-spacing: -0.01em;
 }
 
 .event .where {
   margin-top: 8px;
-  font-size: 0.9688rem;
+  font-size: var(--fs-sm);
 }
 
 .ev-note {
   max-width: 60ch;
   margin-top: 8px;
   color: var(--muted);
-  font-size: 0.9688rem;
+  font-size: var(--fs-sm);
   overflow-wrap: anywhere;
 }
 
 .event .tag-today {
   align-self: start;
+}
+
+/* The archive: smaller and quieter. */
+.events-past .event {
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  padding-block: 16px;
+}
+
+.events-past .ev-day {
+  font-size: 1.75rem;
+}
+
+.events-past .ev-title {
+  font-size: var(--fs-base);
 }
 
 .events-past .ev-day,
@@ -1488,97 +1981,219 @@ main > .section {
   color: var(--text);
 }
 
-.events-past .where .icon {
-  color: var(--muted);
-}
-
 .events-empty {
   max-width: 60ch;
-  padding: 24px;
-  border: 1px solid var(--line-2);
-  border-left: 2px solid var(--signal);
+  color: var(--text);
 }
 
 .subscribe {
-  grid-column: 9 / span 4;
-  position: sticky;
-  top: calc(var(--nav-h) + 24px);
   display: grid;
   gap: 12px;
-  padding: 24px;
-  border: 1px solid var(--line-2);
-  background: var(--bg-2);
 }
 
 .subscribe .prose p {
   color: var(--heading);
-  font: 600 1.125rem/1.35 var(--font-heading);
+  font: 600 var(--fs-lead)/1.35 var(--font-heading);
 }
 
 .subscribe .button {
-  justify-content: center;
   padding-inline: 16px;
   white-space: normal;
   text-align: center;
 }
 
 .subscribe .button-line {
-  background: transparent;
-  font-size: 0.9375rem;
+  font-size: var(--fs-sm);
 }
 
 .subscribe .link-arrow {
   justify-self: start;
   margin-top: 6px;
-  font-size: 0.9375rem;
+  font-size: var(--fs-sm);
+}
+
+@media (width < 768px) {
+  .event.is-next {
+    margin-inline: calc(-1 * var(--gutter));
+    padding-inline: var(--gutter);
+  }
+}
+
+/* ---------- Photo page (/projektek/<project>/kep/<slug>) ---------- */
+
+.photo-view {
+  padding-bottom: clamp(2.5rem, 6vw, 4.5rem);
+}
+
+.photo-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 64px;
+}
+
+.photo-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--heading);
+  font: 700 1rem/1.2 var(--font-heading);
+  text-decoration: none;
+}
+
+.photo-back .icon {
+  color: var(--signal);
+}
+
+.photo-count {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.photo-stage {
+  margin: 0;
+}
+
+.photo-frame {
+  position: relative;
+  width: fit-content;
+  margin-inline: auto;
+}
+
+/* As large as the viewport allows, never cropped, never upscaled; matches the sizes attribute
+   (94vw, 76vh). The box comes from --r and --w (set on .photo-frame), so it is reserved before
+   the file arrives. */
+.photo-stage img {
+  width: min(94vw, calc(76vh * var(--r)), var(--w));
+  height: auto;
+  aspect-ratio: var(--r);
+  object-fit: contain;
+  background: none;
+}
+
+.photo-caption {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.photo-title {
+  margin: 0;
+  font-size: var(--fs-h3);
+  text-wrap: balance;
+}
+
+.photo-caption p {
+  max-width: 60ch;
+  margin: 8px auto 0;
+  color: var(--muted);
+}
+
+/* Previous/next: labelled glass buttons under the photo on phones; on wide screens square glass
+   buttons floating over its left and right edges, where the glass has the photo to refract. */
+.photo-nav {
+  display: flex;
+  gap: 12px;
+  margin: var(--s3) var(--gutter) 0;
+}
+
+.photo-step-next {
+  margin-left: auto;
+}
+
+@media (width >= 768px) and (hover: hover) {
+  .photo-nav {
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    margin: 0;
+    padding-inline: 16px;
+    pointer-events: none;
+  }
+
+  .photo-step {
+    width: 52px;
+    min-height: 52px;
+    padding: 0;
+    pointer-events: auto;
+  }
+
+  .photo-step-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@media (width < 768px) {
+  .photo-stage img {
+    width: min(100vw, calc(70svh * var(--r)), var(--w));
+  }
+}
+
+/* The tile being opened (hovered, focused, or the one the photo page returns to) and the large
+   photo share a name, so the cross-document view transition morphs one into the other. */
+.gallery:not(:has(a:focus-visible)) a:hover img,
+.gallery a:focus-visible img,
+.gallery:not(:has(a:hover, a:focus-visible)) li:target img,
+.photo-stage img {
+  view-transition-name: photo;
+}
+
+::view-transition-group(photo) {
+  animation-duration: 340ms;
+  animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
 /* ---------- Footer ---------- */
 
 .site-footer {
   margin-top: auto;
-  border-top: 1px solid var(--line-2);
-  background: var(--bg-2);
+  overflow: clip;
+  padding-top: clamp(4rem, 8vw, 6rem);
 }
 
-.footer-grid {
+.footer-inner {
   display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: var(--gap);
-  align-items: start;
-  padding-block: 48px 40px;
+  grid-template-columns: 5fr 4fr 3fr;
+  align-items: center;
+  gap: 20px var(--gap);
+  padding-top: 32px;
+  /* The top rule spans the content, not the container's side padding. */
+  background: linear-gradient(var(--line), var(--line)) var(--gutter) 0 / calc(100% - 2 * var(--gutter)) 1px no-repeat;
+  font-size: 0.9375rem;
 }
 
 .footer-brand {
-  grid-column: 1 / span 5;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  justify-self: start;
+  color: var(--heading);
+  font: 700 1.0625rem/1.25 var(--font-heading);
+  text-decoration: none;
 }
 
 .footer-brand img {
-  width: 48px;
-  height: 48px;
-}
-
-.footer-brand p {
-  max-width: 16ch;
-  color: var(--heading);
-  font: 700 1.25rem/1.2 var(--font-heading);
+  width: 32px;
+  height: 32px;
 }
 
 .footer-contact {
-  grid-column: 6 / span 4;
   color: var(--text);
-  font-size: 1rem;
+  font-style: normal;
   line-height: 1.7;
 }
 
+/* Social links: small Liquid Glass circles (see .button). */
 .footer-social {
-  grid-column: 10 / span 3;
   justify-self: end;
   display: flex;
-  gap: 8px;
+  gap: 10px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1589,12 +2204,14 @@ main > .section {
   place-items: center;
   width: 44px;
   height: 44px;
-  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0.02)), rgb(255 255 255 / 0.03);
+  box-shadow: inset 0 1px 0.5px rgb(255 255 255 / 0.3), inset 0 0 0 1px rgb(255 255 255 / 0.1);
   color: var(--heading);
 }
 
 .footer-social a:hover {
-  border-color: var(--signal);
+  box-shadow: inset 0 1px 0.5px rgb(255 255 255 / 0.4), inset 0 0 0 1px rgb(255 222 115 / 0.55);
   color: var(--signal);
 }
 
@@ -1603,34 +2220,49 @@ main > .section {
   height: 20px;
 }
 
-.footer-bottom {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px 32px;
-  padding-block: 20px 28px;
-  border-top: 1px solid var(--line);
+.footer-copy {
+  grid-column: 1 / -1;
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
 }
 
-.footer-bottom ul {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 22px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+/* The wordmark: sized to the container width (cqi), cut at about half its cap height so it sits
+   on the page's bottom edge like a horizon. Its box height is fixed in em, so the font swap
+   cannot move anything. It rises into place as the page bottom scrolls in. */
+.footer-mark {
+  container-type: inline-size;
+  margin-top: clamp(2rem, 5vw, 3.5rem);
+  user-select: none;
 }
 
-.footer-bottom a {
-  color: var(--text);
-  text-decoration: none;
+.footer-mark span {
+  display: block;
+  height: 0.52em;
+  overflow: clip;
+  color: var(--bg-3);
+  font: 800 24cqi/0.7 var(--font-heading);
+  letter-spacing: -0.04em;
+  white-space: nowrap;
 }
 
-.footer-bottom a:hover {
-  color: var(--heading);
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .footer-mark {
+      view-timeline: --mark block;
+    }
+
+    .footer-mark span {
+      animation: rise-mark linear both;
+      animation-timeline: --mark;
+      animation-range: entry 0% entry 100%;
+    }
+  }
+}
+
+@keyframes rise-mark {
+  from {
+    translate: 0 40%;
+  }
 }
 
 /* ---------- Motion: feedback only ---------- */
@@ -1639,6 +2271,29 @@ main > .section {
   .link-arrow .icon,
   .button .icon {
     transition: transform 0.2s ease;
+  }
+
+  /* Glass buttons: lift on hover with a light sweep, squish when pressed (a slight overshoot
+     on release, like iOS). Transform only. */
+  .button {
+    transition: box-shadow 0.2s ease, color 0.2s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .button::after {
+    transition: transform 0.75s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+
+  .button:hover {
+    transform: translateY(-1px);
+  }
+
+  .button:hover::after {
+    transform: translateX(120%);
+  }
+
+  .button:active {
+    transform: scale(0.96);
+    transition-duration: 0.1s;
   }
 
   .link-arrow:hover .icon,
@@ -1675,84 +2330,8 @@ main > .section {
 
 @media (width < 1024px) {
   .nav-desktop .nav-item > a {
-    padding: 0 9px;
-    font-size: 0.9375rem;
-  }
-
-  .signal-body {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .signal-note {
-    grid-column: 1 / -1;
-    border-left: 0 !important;
-    border-top: 1px solid var(--line);
-  }
-
-  .cell-astro {
-    grid-column: 1 / span 7;
-  }
-
-  .cell-sstv {
-    grid-column: 8 / span 5;
-  }
-
-  .cell-plate .cell-text {
-    grid-column: 1 / -1;
-  }
-
-  .freqs {
-    grid-column: 1 / -1;
-    border-top: 1px solid rgb(10 12 15 / 0.22);
-  }
-
-  .freqs div:first-child {
-    border-left: 0;
-  }
-
-  .lineup-wrap {
-    grid-column: 1 / span 7;
-  }
-
-  .lecture-feature {
-    grid-column: 8 / span 5;
-  }
-
-  .programs-list,
-  .subscribe {
-    grid-column: 1 / -1;
-  }
-
-  .subscribe {
-    position: static;
-  }
-
-  /* The lead spans the full width here: a stronger scrim keeps it readable over the nebula. */
-  .page-hero::before {
-    background: linear-gradient(180deg, rgb(10 12 15 / 0.3) 0%, rgb(10 12 15 / 0.7) 30%, var(--bg) 100%);
-  }
-
-  .datarail {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .datarail div:nth-child(odd) {
-    padding-left: 0;
-    border-left: 0;
-  }
-
-  .datarail div:nth-child(n + 3) {
-    border-top: 1px solid var(--line);
-  }
-
-  .project-split .page-head,
-  .project-frame {
-    grid-column: 1 / -1;
-  }
-
-  .project-frame {
-    max-width: 560px;
-    margin-bottom: 24px;
+    padding: 0 10px;
+    font-size: var(--fs-sm);
   }
 }
 
@@ -1762,6 +2341,8 @@ main > .section {
   :root {
     --gap: 16px;
     --nav-h: 60px;
+    --s4: 32px;
+    --s5: 48px;
   }
 
   .nav-desktop {
@@ -1778,7 +2359,7 @@ main > .section {
   }
 
   .hero {
-    min-height: 0;
+    min-height: 100svh;
   }
 
   .hero-photo img {
@@ -1790,77 +2371,37 @@ main > .section {
   }
 
   .hero-inner {
-    gap: 96px;
-    padding-top: 48px;
+    gap: clamp(120px, 28svh, 240px);
+    padding-top: 40px;
     padding-bottom: 24px;
-  }
-
-  .hero h1 {
-    font-size: 3.25rem;
   }
 
   .actions .button {
     flex: 1 1 auto;
-    justify-content: center;
   }
 
-  .signal-bar {
-    flex-wrap: wrap;
-    padding: 12px 18px;
+  .signal {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
   }
 
   .signal-link {
-    margin-left: 0;
-    width: 100%;
+    justify-self: start;
   }
 
-  .signal-body {
-    grid-template-columns: 1fr;
+  .signal-when {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
   }
 
-  .signal-body > * {
-    padding: 18px;
+  .signal-when .sub {
+    flex-basis: 100%;
   }
 
-  .signal-body > * + * {
-    border-left: 0;
-    border-top: 1px solid var(--line);
-  }
-
-  .community-row,
-  .projects-head,
-  .bento,
-  .lectures,
-  .about,
-  .contact,
-  .programs,
-  .project-split,
-  .footer-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .community-row > *,
-  .projects-intro,
-  .cell-astro,
-  .cell-sstv,
-  .cell-plate,
-  .lineup-wrap,
-  .lecture-feature,
-  .about > *,
-  .contact > *,
-  .contact-text,
-  .footer-brand,
-  .footer-contact,
-  .footer-social {
-    grid-column: 1;
-  }
-
-  .community-row {
-    margin-top: 40px;
-  }
-
-  .community-text {
-    padding-left: 0;
+  .band img {
+    height: auto;
+    aspect-ratio: 4 / 3;
   }
 
   .projects-head {
@@ -1873,11 +2414,13 @@ main > .section {
     right: auto;
     width: 82%;
     margin: -8px calc(-1 * var(--gutter)) 0 auto;
-    transform: none;
   }
 
-  .bento {
-    margin-top: 24px;
+  .moon figcaption {
+    position: static;
+    margin-top: 8px;
+    padding-right: var(--gutter);
+    text-align: right;
   }
 
   .cell-astro .cell-media {
@@ -1886,42 +2429,8 @@ main > .section {
     aspect-ratio: 4 / 5;
   }
 
-  .cell-plate {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .cell-plate .cell-text {
-    padding: 24px 20px 20px;
-  }
-
-  .freqs {
-    grid-template-columns: 1fr;
-    padding: 0 20px 8px;
-  }
-
-  .freqs div {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: baseline;
-    padding: 14px 0;
-    border-left: 0;
-  }
-
-  .freqs div + div {
-    border-top: 1px solid rgb(10 12 15 / 0.22);
-  }
-
-  .freqs dd {
-    font-size: 1.5rem;
-  }
-
   .lecture-feature {
     order: -1;
-  }
-
-  .lecture-feature img {
-    aspect-ratio: 3 / 2;
   }
 
   .event {
@@ -1945,44 +2454,16 @@ main > .section {
     font-size: 2.25rem;
   }
 
-  .event.is-next {
-    padding: 18px 16px 20px;
-  }
-
-  .datarail div {
-    padding: 14px 14px 16px;
-  }
-
-  .datarail dd.mono {
-    font-size: clamp(1rem, 7vw - 6.5px, 1.375rem);
-  }
-
-  .signal-when {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-  }
-
-  .signal-when .sub {
-    flex-basis: 100%;
-  }
-
-  .moon figcaption {
-    position: static;
-    margin-top: 8px;
-  }
-
   .contact-list div {
     grid-template-columns: 1fr;
     gap: 6px;
   }
 
-  .footer-social {
-    justify-self: start;
+  .footer-inner {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .footer-bottom {
-    flex-direction: column;
-    align-items: flex-start;
+  .footer-social {
+    justify-self: start;
   }
 }

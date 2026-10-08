@@ -28,16 +28,31 @@ brotli = { version = "8", optional = true }
 flate2 = { version = "1", optional = true }
 # Programs page: the club's public Google Calendar feed is fetched and parsed on the server.
 # rustls (aws-lc-rs + the OS certificate store), gzip for the feed; no HTTP/2, proxy or charset support.
-reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "gzip"], optional = true }
+# json + query: the Drive API (src/drive/).
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "gzip", "json", "query"], optional = true }
 # Time zones for the feed (Europe/Budapest DST). The tzdb is compiled in, so the server does not
 # depend on the host's /usr/share/zoneinfo (Windows and minimal containers have none).
 jiff = { version = "0.2.38", default-features = false, features = ["std", "tzdb-bundle-always"], optional = true }
+# Drive galleries (src/drive/): photos are downloaded from the club's Google Drive folders and
+# re-encoded on the server (no metadata, so no GPS) as AVIF + progressive JPEG per width.
+image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "webp"], optional = true }
+jpeg-encoder = { version = "0.7.1", optional = true }
+# Colour profiles (Display P3, Adobe RGB photos) converted to sRGB; already in the tree via image.
+moxcms = { version = "0.8.1", optional = true }
+# Pure-Rust AVIF (rav1e). No "asm" feature: that needs nasm at build time.
+ravif = { version = "0.13.0", default-features = false, features = ["threading"], optional = true }
+# Service-account sign-in (RS256 JWT). Already in the tree as the rustls crypto provider.
+aws-lc-rs = { version = "1.18.1", optional = true }
+base64 = { version = "0.23.1", optional = true }
 
 # client-only (hydrate)
 wasm-bindgen = { version = "0.2.129", optional = true }
 console_error_panic_hook = { version = "0.1.7", optional = true }
 
 [features]
+# rav1e's assembly kernels: several times faster AVIF encoding of Drive photos. Needs nasm on
+# the build machine (apt install nasm), so it is opt-in.
+fast-avif = ["ravif/asm"]
 hydrate = [
     "leptos/hydrate",
     "dep:wasm-bindgen",
@@ -53,10 +68,21 @@ ssr = [
     "dep:flate2",
     "dep:reqwest",
     "dep:jiff",
+    "dep:image",
+    "dep:jpeg-encoder",
+    "dep:moxcms",
+    "dep:ravif",
+    "dep:aws-lc-rs",
+    "dep:base64",
     "leptos/ssr",
     "leptos_meta/ssr",
     "leptos_router/ssr",
 ]
+
+# Dev builds: dependencies optimized, because image decoding and AVIF encoding (Drive galleries)
+# are unusably slow at opt-level 0. The crate itself still compiles fast.
+[profile.dev.package."*"]
+opt-level = 2
 
 # Server binary. panic stays "unwind": one panicking request must not kill the process.
 [profile.release]

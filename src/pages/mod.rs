@@ -3,6 +3,7 @@ mod contact;
 mod home;
 mod lecturers;
 mod not_found;
+mod photo;
 mod programs;
 mod projects;
 
@@ -11,6 +12,7 @@ pub use contact::Contact;
 pub use home::Home;
 pub use lecturers::Lecturers;
 pub use not_found::NotFound;
+pub use photo::PhotoPage;
 pub use programs::Programs;
 pub use projects::{Project, Projects};
 
@@ -19,7 +21,7 @@ use leptos::prelude::*;
 use crate::{
     content::{Block, Doc},
     layout::PageMeta,
-    media::{Gallery, Picture},
+    media::{Gallery, Picture, Tile},
 };
 
 /// Metadata of a content page.
@@ -45,7 +47,9 @@ fn Blocks(blocks: &'static [Block]) -> impl IntoView {
                 </figure>
             }
             .into_any(),
-            Block::Images(images) => view! { <Gallery images=images.clone()/> }.into_any(),
+            Block::Images(images) => {
+                view! { <Gallery tiles=images.iter().filter_map(Tile::from_ref).collect()/> }.into_any()
+            }
         })
         .collect_view()
 }
@@ -57,6 +61,9 @@ fn PageHeader(
     /// Parent page link shown above the title, e.g. ("Projektek", "/projektek").
     #[prop(optional)]
     parent: Option<(&'static str, &'static str)>,
+    /// view-transition-name of the title (a card title elsewhere morphs into it).
+    #[prop(optional)]
+    vt: Option<&'static str>,
     #[prop(optional)] children: Option<Children>,
 ) -> impl IntoView {
     view! {
@@ -67,7 +74,7 @@ fn PageHeader(
                     <span aria-hidden="true">"/"</span>
                 </nav>
             })}
-            <h1 class="page-title">{title}</h1>
+            <h1 class="page-title" style=vt.map(|n| format!("view-transition-name:{n}"))>{title}</h1>
             {children.map(|c| c())}
         </header>
     }
@@ -111,7 +118,6 @@ mod tests {
             projects::ASTRO_IMAGE,
             projects::ASTRO_IMAGE_WIDE,
             projects::SSTV_CARD_IMAGE,
-            projects::SSTV_HERO_IMAGE,
         ] {
             assert!(crate::images::get(key).is_some(), "missing image {key}");
         }
