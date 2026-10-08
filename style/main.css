@@ -1,0 +1,979 @@
+/* Kozmosz: dark night-sky theme with the yellow accent of the old kozmosz.bme.hu brand.
+   One theme (dark), one accent, square corners everywhere. */
+
+@font-face {
+  font-family: "Urbanist";
+  src: url("/fonts/urbanist-hu.woff2") format("woff2");
+  font-weight: 500 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Arial Bold scaled to Urbanist's metrics, so the font swap barely moves headings. */
+@font-face {
+  font-family: "Urbanist Fallback";
+  src: local("Arial Bold"), local("Arial-BoldMT"), local("Helvetica Bold");
+  font-weight: 700;
+  size-adjust: 93.77%;
+  ascent-override: 101.31%;
+  descent-override: 26.66%;
+  line-gap-override: 0%;
+}
+
+:root {
+  color-scheme: dark;
+
+  --bg: #252422;
+  --bg-deep: #1f1d1b;
+  --surface: #31302d;
+  --line: #3c3c38;
+  --line-strong: #5a5852;
+  --heading: #faf7ef;
+  --text: #dedad1;
+  --muted: #aeaaa1;
+  --accent: #ffde73;
+  --accent-hover: #ffe89a;
+  --on-accent: #1f1d1b;
+
+  --font-heading: "Urbanist", "Urbanist Fallback", system-ui, sans-serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+
+  --container: 1180px;
+  --gutter: clamp(16px, 4vw, 40px);
+  --header-h: 68px;
+  --space-section: clamp(3.5rem, 7vw, 6.5rem);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+  scroll-padding-top: calc(var(--header-h) + 1rem);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+main {
+  flex: 1;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+picture {
+  display: block;
+}
+
+/* Placeholder tile while a lazy image loads. */
+picture img {
+  background: var(--surface);
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 0.5em;
+  color: var(--heading);
+  font-family: var(--font-heading);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: clamp(2.4rem, 1.5rem + 3.8vw, 4.5rem);
+}
+
+h2 {
+  font-size: clamp(1.75rem, 1.25rem + 1.9vw, 2.75rem);
+}
+
+h3 {
+  font-size: 1.375rem;
+}
+
+p {
+  margin: 0 0 1em;
+  text-wrap: pretty;
+}
+
+a {
+  color: var(--accent);
+  text-underline-offset: 0.2em;
+}
+
+a:hover {
+  color: var(--accent-hover);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+address {
+  font-style: normal;
+}
+
+.container {
+  width: 100%;
+  max-width: calc(var(--container) + 2 * var(--gutter));
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.icon {
+  display: inline-flex;
+  flex: none;
+  width: 1.15em;
+  height: 1.15em;
+}
+
+.icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.skip-link {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 30;
+  padding: 0.75rem 1rem;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+  transform: translateY(-100%);
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
+.skip-link:hover {
+  color: var(--on-accent);
+}
+
+/* Cross-document fade between pages, zero JavaScript (Chromium, Safari; ignored elsewhere). */
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 180ms;
+}
+
+/* ---------- Buttons and links ---------- */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+  padding: 0.8em 1.3em;
+  border: 1px solid transparent;
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.button:active {
+  transform: translateY(1px);
+}
+
+.button-primary {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.button-primary:hover {
+  background: var(--accent-hover);
+  color: var(--on-accent);
+}
+
+.button-secondary {
+  border-color: var(--line-strong);
+  color: var(--heading);
+}
+
+.button-secondary:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.link-arrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  color: var(--accent);
+  font-family: var(--font-heading);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.link-arrow:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Header and navigation ---------- */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--bg-deep);
+  border-bottom: 1px solid var(--line);
+  view-transition-name: site-header;
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  height: var(--header-h);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--heading);
+  font-family: var(--font-heading);
+  font-size: 1.3rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.brand:hover {
+  color: var(--heading);
+}
+
+.nav-list {
+  display: flex;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nav-list a {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0.55rem 0.8rem;
+  color: var(--heading);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.nav-list a:hover {
+  color: var(--accent);
+}
+
+/* Current page: color plus underline, so it is not signalled by color alone. */
+.nav-list a[aria-current="page"] {
+  color: var(--accent);
+  text-decoration: underline 2px;
+  text-underline-offset: 6px;
+}
+
+/* Parent of the current subpage: accent colour only, without the "current" semantics. */
+.nav-list .has-sub:has(.nav-sub a[aria-current="page"]) > a {
+  color: var(--accent);
+}
+
+.nav-item {
+  position: relative;
+}
+
+.nav-item .icon {
+  width: 0.85em;
+  height: 0.85em;
+}
+
+.nav-sub {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nav-desktop .nav-sub {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 14rem;
+  padding: 0.4rem 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  display: none;
+}
+
+/* The last nav item sits at the right edge: open its submenu leftwards. */
+.nav-desktop .nav-item:last-child > .nav-sub {
+  left: auto;
+  right: 0;
+}
+
+.nav-desktop .has-sub:hover > .nav-sub,
+.nav-desktop .has-sub:focus-within > .nav-sub {
+  display: block;
+}
+
+.nav-desktop .nav-sub a {
+  padding: 0.5rem 1rem;
+}
+
+.nav-mobile {
+  display: none;
+}
+
+.nav-mobile summary {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  color: var(--heading);
+  font-size: 1.5rem;
+  list-style: none;
+  cursor: pointer;
+}
+
+.nav-mobile summary::-webkit-details-marker {
+  display: none;
+}
+
+.nav-mobile-close,
+.nav-mobile details[open] .nav-mobile-open {
+  display: none;
+}
+
+.nav-mobile details[open] .nav-mobile-close {
+  display: inline-flex;
+}
+
+/* Full-screen sheet under the header. */
+.nav-mobile-panel {
+  position: absolute;
+  top: var(--header-h);
+  left: 0;
+  right: 0;
+  height: calc(100svh - var(--header-h));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.75rem var(--gutter) 1.5rem;
+  background: var(--bg-deep);
+}
+
+.nav-mobile .nav-list {
+  flex-direction: column;
+}
+
+.nav-mobile .nav-list a {
+  padding: 0.8rem 0;
+  font-size: 1.125rem;
+}
+
+.nav-mobile .nav-item .icon {
+  display: none;
+}
+
+.nav-mobile .nav-sub {
+  padding-left: 1rem;
+  border-left: 1px solid var(--line);
+}
+
+@media (width <= 900px) {
+  .nav-desktop {
+    display: none;
+  }
+
+  .nav-mobile {
+    display: block;
+  }
+
+  /* While the sheet is open, hide the page behind it: Tab must not land under the panel. */
+  body:has(.nav-mobile details[open]) :is(main, .site-footer) {
+    visibility: hidden;
+  }
+}
+
+/* ---------- Page structure ---------- */
+
+.section {
+  padding-block: var(--space-section);
+}
+
+.section-tight {
+  padding-bottom: var(--space-section);
+}
+
+.page-header {
+  padding-block: clamp(2.5rem, 6vw, 4.5rem) clamp(1.5rem, 3vw, 2.5rem);
+}
+
+.page-header h1 {
+  margin-bottom: 0.25em;
+}
+
+.page-lead {
+  max-width: 40rem;
+  color: var(--muted);
+  font-size: 1.2rem;
+}
+
+.breadcrumb {
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+}
+
+.breadcrumb a {
+  color: var(--muted);
+}
+
+.breadcrumb a:hover {
+  color: var(--accent);
+}
+
+.prose {
+  max-width: 65ch;
+}
+
+.prose > :last-child {
+  margin-bottom: 0;
+}
+
+.prose + .prose {
+  margin-top: 1em;
+}
+
+.lead {
+  color: var(--heading);
+  font-size: clamp(1.2rem, 1.05rem + 0.7vw, 1.5rem);
+  line-height: 1.5;
+}
+
+.section-head {
+  margin-bottom: 2.25rem;
+}
+
+.section-head h2 {
+  margin-bottom: 0.4em;
+}
+
+.section-head-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.figure {
+  margin: 2rem 0;
+}
+
+/* ---------- Home ---------- */
+
+.hero {
+  padding-block: clamp(2rem, 5vw, 5rem);
+}
+
+.hero-grid {
+  display: grid;
+  gap: 2.5rem;
+}
+
+.eyebrow {
+  margin-bottom: 1rem;
+  color: var(--accent);
+  font-family: var(--font-heading);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.hero h1 {
+  margin-bottom: 0.3em;
+  font-size: clamp(3rem, 2rem + 4.5vw, 5.5rem);
+}
+
+.hero-lead p {
+  max-width: 34ch;
+  margin: 0;
+  font-size: clamp(1.125rem, 1rem + 0.45vw, 1.35rem);
+  line-height: 1.55;
+}
+
+.hero-lead p + p {
+  margin-top: 0.75em;
+}
+
+.hero-media img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  object-position: center 70%;
+}
+
+@media (width > 860px) {
+  .hero-grid {
+    grid-template-columns: 5fr 7fr;
+    align-items: center;
+  }
+}
+
+.editorial-body {
+  max-width: 62ch;
+}
+
+.editorial-body .lead {
+  margin-bottom: 1.5rem;
+}
+
+.band {
+  margin: 0;
+}
+
+.band img {
+  width: 100%;
+  height: clamp(260px, 42vw, 560px);
+  object-fit: cover;
+  object-position: center 45%;
+}
+
+/* Bento: a tall feature cell next to two stacked cells. */
+.bento {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (width > 760px) {
+  .bento {
+    grid-template-columns: 7fr 5fr;
+  }
+
+  .bento-feature {
+    grid-row: span 2;
+  }
+}
+
+.bento-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color 0.15s ease;
+}
+
+.bento-cell:hover {
+  border-color: var(--accent);
+}
+
+/* The title link covers the whole card; the ring is drawn around the card instead. */
+.stretched-link {
+  color: var(--heading);
+  text-decoration: none;
+}
+
+.stretched-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.stretched-link:hover {
+  color: var(--heading);
+}
+
+.stretched-link:focus-visible {
+  outline: none;
+}
+
+.bento-cell:has(.stretched-link:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.bento-media img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  /* SSTV frames carry their title at the top. */
+  object-position: center top;
+}
+
+/* The feature photo fills whatever height the two stacked cells give the row,
+   instead of stretching the row to its own (portrait) height. */
+.bento-feature .bento-media {
+  position: relative;
+  flex: 1;
+  min-height: 360px;
+}
+
+.bento-feature .bento-media img {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  aspect-ratio: auto;
+  object-position: center 40%;
+}
+
+.bento-text {
+  padding: 1.5rem 1.5rem 1.75rem;
+}
+
+.bento-title {
+  margin-bottom: 0.4em;
+  font-size: 1.375rem;
+}
+
+.bento-text p {
+  margin-bottom: 1.25rem;
+  color: var(--muted);
+}
+
+/* Cell without a photo: a faint star field in the brand yellow. */
+.bento-tinted {
+  justify-content: flex-end;
+  min-height: 280px;
+  background:
+    radial-gradient(circle at 78% 22%, rgb(255 222 115 / 0.16), transparent 42%),
+    radial-gradient(rgb(250 247 239 / 0.14) 1px, transparent 1.6px) 0 0 / 22px 22px,
+    var(--surface);
+}
+
+/* The yellow glow lowers the contrast of muted text: use the body colour here. */
+.bento-tinted .bento-text p {
+  color: var(--text);
+}
+
+/* Lecturer strip: horizontal scroll with snap points, no JavaScript. */
+.strip-section .section-head {
+  margin-bottom: calc(1.5rem - 6px);
+}
+
+.strip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 210px;
+  gap: 1rem;
+  margin-block: 0;
+  /* Top padding keeps the links' focus ring inside the scrollport. */
+  padding-block: 6px 1rem;
+  list-style: none;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  /* Snap to the content edge, not the padding edge, so the strip lines up with the heading. */
+  scroll-padding-inline: var(--gutter);
+  scrollbar-color: #807d75 transparent;
+}
+
+.strip li {
+  scroll-snap-align: start;
+}
+
+.strip a {
+  display: block;
+  color: var(--heading);
+  text-decoration: none;
+}
+
+.strip a:hover {
+  color: var(--accent);
+}
+
+.strip img {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+}
+
+.strip-name {
+  display: block;
+  margin-top: 0.6rem;
+  font-family: var(--font-heading);
+  font-weight: 700;
+}
+
+/* ---------- Inner pages ---------- */
+
+.split {
+  display: grid;
+  gap: 2.5rem;
+  align-items: center;
+}
+
+@media (width > 860px) {
+  .split {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.split-media img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.lecturers {
+  display: grid;
+  gap: 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (width > 760px) {
+  .lecturers {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.lecturer {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.lecturer:target {
+  border-color: var(--accent);
+}
+
+.lecturer-photo img {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+}
+
+.lecturer-body {
+  padding: 1.5rem 1.5rem 1.75rem;
+}
+
+.lecturer-body h2 {
+  margin-bottom: 0.2em;
+  font-size: 1.5rem;
+}
+
+.lecturer-title {
+  margin-bottom: 0.9rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.project .gallery {
+  margin-top: 2.5rem;
+}
+
+.project h2 {
+  margin-top: 2.5rem;
+}
+
+.empty-note {
+  max-width: 65ch;
+  margin-top: 2.5rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px dashed var(--line-strong);
+  color: var(--muted);
+}
+
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gallery a {
+  display: block;
+}
+
+.gallery img {
+  width: 100%;
+  transition: opacity 0.15s ease;
+}
+
+.gallery:not(.gallery-masonry) img {
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.gallery a:hover img {
+  opacity: 0.85;
+}
+
+/* Mixed photo shapes keep their own aspect ratio. */
+.gallery-masonry {
+  display: block;
+  columns: 3 280px;
+  column-gap: 1rem;
+}
+
+.gallery-masonry li {
+  margin-bottom: 1rem;
+  break-inside: avoid;
+}
+
+.split-text > .button-primary + .prose {
+  margin-top: 2rem;
+}
+
+.prose + .button {
+  margin-top: 1rem;
+}
+
+.calendar-alt {
+  margin-top: 1rem;
+  font-size: 0.95rem;
+}
+
+.contact > .prose:first-child p {
+  color: var(--heading);
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.social-list {
+  display: flex;
+  gap: 1.5rem;
+  margin: 2rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.social-list a,
+.footer-social a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  color: var(--heading);
+  text-decoration: none;
+}
+
+.social-list a:hover,
+.footer-social a:hover {
+  color: var(--accent);
+}
+
+/* ---------- Footer ---------- */
+
+.site-footer {
+  padding-top: 3.5rem;
+  background: var(--bg-deep);
+  border-top: 1px solid var(--line);
+  font-size: 0.95rem;
+}
+
+.footer-grid {
+  display: grid;
+  gap: 2rem;
+}
+
+@media (width > 760px) {
+  .footer-grid {
+    grid-template-columns: 2fr 1fr 1fr;
+  }
+}
+
+.footer-name {
+  margin: 1rem 0 0.5rem;
+  color: var(--heading);
+  font-family: var(--font-heading);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.footer-org address {
+  color: var(--muted);
+}
+
+.footer-nav ul,
+.footer-social {
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.footer-nav a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.footer-nav a:hover {
+  color: var(--accent);
+}
+
+.footer-bottom {
+  margin-top: 2.5rem;
+  padding-block: 1.25rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.footer-bottom p {
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @view-transition {
+    navigation: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+  }
+
+  .strip {
+    scroll-behavior: auto;
+  }
+}
