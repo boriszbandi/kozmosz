@@ -67,4 +67,7 @@ Top priority: fastest possible load. These rules override any design skill or DE
 - Dev (hot reload): `LEPTOS_HASH_FILES=false cargo leptos watch` → http://127.0.0.1:3000
   (watch only hashes its first build; with hashing on, CSS edits never reach the browser)
 - Release: `cargo leptos build --release --precompress` (or `cargo leptos serve --release --precompress`)
+  Both builds write the same `target/site/pkg`: a release build replaces the dev server's
+  `kozmosz.css` with hashed files, so a running `cargo leptos watch` serves pages without CSS
+  until it is restarted.
 - Tests: `cargo test --features ssr`
