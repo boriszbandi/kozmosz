@@ -1,25 +1,26 @@
 use leptos::prelude::*;
 
-use super::{Blocks, DocMeta, PageHeader};
+use super::{home::is_on, Blocks, DocMeta, PageHeader};
 use crate::{
-    calendar::{self, Event, Segment},
+    calendar::{self, Date, Event, Segment},
     content::doc,
     icons,
-    media::{Icon, Picture},
+    media::Icon,
     site,
 };
 
-/// Events from the club's Google Calendar (downloaded by the server, see src/calendar.rs), then
+/// Events from the club's Google Calendar (downloaded by the server, see src/calendar.rs), next to
 /// the ways to subscribe to it. Everything from the feed is rendered as escaped text.
 #[component]
 pub fn Programs() -> impl IntoView {
     let page = doc("programjaink");
     let calendar = calendar::current();
+    let today = calendar.today;
     let upcoming = calendar.upcoming.clone();
     let past = calendar.past.clone();
 
     let upcoming = if !upcoming.is_empty() {
-        view! { <EventList events=upcoming/> }.into_any()
+        view! { <EventList events=upcoming today highlight_first=true/> }.into_any()
     } else if calendar.loaded {
         view! {
             <p class="events-empty">
@@ -45,74 +46,78 @@ pub fn Programs() -> impl IntoView {
     view! {
         <DocMeta doc=page/>
         <PageHeader title=page.title.clone()/>
-        <section class="container section-tight events events-upcoming" aria-labelledby="kozelgo-programok">
-            <h2 id="kozelgo-programok">"Közelgő programok"</h2>
-            {upcoming}
-        </section>
-        <section id="feliratkozas" class="container section-tight split calendar-subscribe">
-            <div class="split-text">
+        <div class="container page-body programs">
+            <div class="programs-list">
+                <section aria-labelledby="kozelgo-programok">
+                    <h2 class="group-title" id="kozelgo-programok">"Közelgő programok"</h2>
+                    {upcoming}
+                </section>
+                {(!past.is_empty()).then(|| view! {
+                    <section class="events-past" aria-labelledby="legutobbi-programok">
+                        <h2 class="group-title" id="legutobbi-programok">"Legutóbbi programok"</h2>
+                        <EventList events=past today highlight_first=false/>
+                    </section>
+                })}
+            </div>
+            <aside id="feliratkozas" class="subscribe" aria-label="Feliratkozás a naptárra">
                 // "Vagy iratkozz fel az online naptárunkra!"
                 <Blocks blocks=&page.intro/>
-                <div class="actions">
-                    <a class="button button-primary" href=site::CALENDAR_SUBSCRIBE_GOOGLE_URL rel="noopener">
-                        <Icon svg=icons::CALENDAR_BLANK/>
-                        "Kozmosz online naptár"
-                    </a>
-                    // A link, not an embedded iframe: the Google embed is heavy and third-party.
-                    <a class="button button-secondary" href=site::CALENDAR_EMBED_URL rel="noopener">
-                        "Naptár megnyitása"
-                        <Icon svg=icons::ARROW_UP_RIGHT/>
-                    </a>
-                </div>
-                <p class="calendar-alt">
-                    <a href=site::CALENDAR_SUBSCRIBE_WEBCAL_URL>"Feliratkozás Apple Naptárban vagy Outlookban"</a>
-                </p>
-            </div>
-            <Picture
-                key="kozosseg/eloadas-szinpad"
-                alt="Előadás a Kozmosz rendezvényén, egy aula színpadán"
-                sizes="(width > 1100px) 620px, (width > 860px) 55vw, 92vw"
-                class="split-media"
-            />
-        </section>
-        {(!past.is_empty()).then(|| view! {
-            <section class="container section-tight events events-past" aria-labelledby="legutobbi-programok">
-                <h2 id="legutobbi-programok">"Legutóbbi programok"</h2>
-                <EventList events=past/>
-            </section>
-        })}
+                <a class="button button-signal" href=site::CALENDAR_SUBSCRIBE_GOOGLE_URL rel="noopener">
+                    <Icon svg=icons::CALENDAR_BLANK/>
+                    "Kozmosz online naptár"
+                </a>
+                <a class="button button-line" href=site::CALENDAR_SUBSCRIBE_WEBCAL_URL>
+                    "Apple Naptár, Outlook"
+                </a>
+                // A link, not an embedded iframe: the Google embed is heavy and third-party.
+                <a class="link-arrow" href=site::CALENDAR_EMBED_URL rel="noopener">
+                    "Naptár megnyitása"
+                    <Icon svg=icons::ARROW_UP_RIGHT/>
+                </a>
+            </aside>
+        </div>
     }
 }
 
 #[component]
-fn EventList(events: Vec<Event>) -> impl IntoView {
+fn EventList(events: Vec<Event>, today: Option<Date>, highlight_first: bool) -> impl IntoView {
     view! {
-        <ol class="event-list" role="list">
-            {events.into_iter().map(|event| view! { <li><EventCard event/></li> }).collect_view()}
+        <ol class="events" role="list">
+            {events
+                .into_iter()
+                .enumerate()
+                .map(|(i, event)| {
+                    let next = highlight_first && i == 0;
+                    let is_today = highlight_first && is_on(&event, today);
+                    view! { <li class="event" class:is-next=next><EventItem event is_today/></li> }
+                })
+                .collect_view()}
         </ol>
     }
 }
 
 #[component]
-fn EventCard(event: Event) -> impl IntoView {
-    let datetime = event.datetime_attr();
-    let date = event.date_label();
-    let hours = event.time_label();
+fn EventItem(event: Event, is_today: bool) -> impl IntoView {
+    let date = event.start.date;
+    // Same-day events show their hours; longer ones their full range.
+    let when = event.time_label().unwrap_or_else(|| {
+        if event.all_day && event.end.date == event.start.date { "egész nap".to_owned() } else { event.date_label() }
+    });
     view! {
-        <article class="event">
-            <h3 class="event-title">{event.title}</h3>
-            <p class="event-when">
-                <time datetime=datetime>{date}</time>
-                {hours.map(|hours| view! { " " <span class="event-hours">{hours}</span> })}
-            </p>
+        <time class="ev-date" datetime=event.datetime_attr()>
+            <span class="ev-day">{date.day}</span>
+            <span class="ev-month">{date.month_short()}</span>
+            <span class="ev-wd">{date.weekday_name()}</span>
+        </time>
+        <div class="ev-main">
+            <p class="ev-time">{when}</p>
+            <h3 class="ev-title">{event.title}</h3>
             {event.location.map(|location| view! {
-                <p class="event-location">
-                    <Icon svg=icons::MAP_PIN/>
-                    <span>{location}</span>
-                </p>
+                <p class="where"><Icon svg=icons::MAP_PIN/><span>{location}</span></p>
             })}
-            {event.description.map(|text| view! { <p class="event-description"><Description text/></p> })}
-        </article>
+            {event.description.map(|text| view! { <p class="ev-note"><Description text/></p> })}
+        </div>
+        {is_today.then(|| view! { <span class="tag-today">"Ma"</span> })}
     }
 }
 

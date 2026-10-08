@@ -14,8 +14,11 @@ Top priority: fastest possible load. These rules override any design skill or DE
   metric-matched Arial fallback face. No other webfonts without the user's OK.
 - Icons: Phosphor (regular) as inline SVG constants in `src/icons.rs`, rendered with `<Icon>`.
   No icon fonts, no CDNs.
-- Design: dark theme only (brand), one accent (#ffde73), square corners, no em/en dashes in UI text.
-  Design skills apply within these rules (taste-skill dials: variance 6, motion 3, density 4).
+- Design "Földi állomás" (ground station, chosen by the user 2026-10-08): cool near-black (#0a0c0f),
+  hairlines framing real content, one accent (#ffde73, the "signal" colour), square corners, dark theme
+  only. Monospace (system stack) only for real data: dates, times, frequencies, reception times.
+  No em/en dashes in UI text. Design skills apply within these rules (dials: variance 6, motion 3,
+  density 4). Mockups of the three candidate directions: D:\Claude\kozmosz-design-concepts.
 - No third-party requests at runtime (no picsum, no CDN logos, no analytics) unless the user asks.
 - Motion: CSS only (transform/opacity, `@view-transition`), always behind `prefers-reduced-motion`.
   Content must never start hidden (no opacity:0 waiting for JS).

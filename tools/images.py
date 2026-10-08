@@ -27,22 +27,25 @@ import struct
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageCms, ImageOps
+from PIL import Image, ImageChops, ImageCms, ImageOps
 
 # --------------------------------------------------------------------------
 # Configuration
 # --------------------------------------------------------------------------
 
-HERO = [640, 1280, 1920]  # full-bleed / large images
-PHOTO = [640, 1280]  # other community and astro photos
-LECTURER = [480, 945]  # lecturer portraits
-SSTV = [320, 640]  # SSTV reception images (sources are 640 wide)
+# Steps close enough that a phone at DPR ~1.75-3 never gets a file far bigger than it draws.
+HERO = [480, 720, 960, 1280, 1600, 1920]  # full-bleed / large images (1600: DPR-1 desktops)
+MOON = [400, 560, 800, 1120]  # the Moon beside the projects intro (max ~520 CSS px)
+PHOTO = [480, 720, 960, 1280]  # other community and astro photos
+LECTURER = [480, 720, 945]  # lecturer portraits
+SSTV = [320, 480, 640]  # SSTV reception images (sources are 640 wide)
 
 # (key, source path relative to the export root, target widths).
 # A source ending in "/*" means: every file in that folder, key = prefix + slug(stem).
 CONFIG: list[tuple[str, str, list[int]]] = [
     # Community photos
     ("kozosseg/egbolt", "media-extra/IMG_5052-scaled.jpg", HERO),
+    ("kozosseg/egbolt-allo", "media-extra/IMG_5052-scaled.jpg", PHOTO),  # see TRANSFORMS
     ("kozosseg/csoportkep", "media/ede2127c-f25b-40ec-a5bc-de8790124068-scaled.jpg", HERO),
     ("kozosseg/eloadas-szinpad", "media/IMG_1185-scaled.jpg", PHOTO),
     ("kozosseg/eloadas-vetites", "media-extra/IMG_1192-scaled.jpg", PHOTO),
@@ -54,7 +57,9 @@ CONFIG: list[tuple[str, str, list[int]]] = [
     ("kozosseg/eloadas-terem", "media-extra/PXL_20241212_171635845-scaled.jpg", PHOTO),
     # Astrophotography
     ("asztro/hold", "drive/asztro/Hold1 (1).jpg", HERO),
+    ("asztro/hold-lap", "drive/asztro/Hold1 (1).jpg", MOON),  # see TRANSFORMS
     ("asztro/orion-kod", "media-extra/Orion_Nebula-scaled.jpg", PHOTO),
+    ("asztro/orion-kod-szeles", "media-extra/Orion_Nebula-scaled.jpg", HERO),  # see TRANSFORMS
     ("asztro/laguna-kod", "media-extra/asztrokurzus_result.png", PHOTO),
     # Lecturers
     ("eloadok/szabo-jozsef", "media/image.png", LECTURER),
@@ -75,6 +80,42 @@ CONFIG: list[tuple[str, str, list[int]]] = [
     # SSTV images: one key per file
     ("sstv/", "drive/sstv/*", SSTV),
 ]
+
+# Page background of the site (style/main.css --bg); see TRANSFORMS.
+PAGE_BG = (10, 12, 15)
+
+
+def moon_on_page(im: Image.Image) -> Image.Image:
+    """The Moon for the home page, where it bleeds off the edge into the page: the burned-in
+    signature in the bottom-right corner of the sky is painted out (the credit is shown as a
+    caption instead) and the black sky is lifted to the page colour, so no box edge shows."""
+    w, h = im.size
+    im = im.copy()
+    im.paste((0, 0, 0), (round(w * 0.70), round(h * 0.88), w, h))
+    return ImageChops.lighter(im, Image.new("RGB", im.size, PAGE_BG))
+
+
+def portrait(center_x: float):
+    """3:4 portrait crop of a landscape source, for a full-bleed hero on phones."""
+    def crop(im: Image.Image) -> Image.Image:
+        w, h = im.size
+        cw = round(h * 3 / 4)
+        left = min(max(0, round(w * center_x - cw / 2)), w - cw)
+        return im.crop((left, 0, left + cw, h))
+    return crop
+
+
+def band(top: float, bottom: float):
+    """Horizontal band of a portrait source: the part a wide, short header shows."""
+    return lambda im: im.crop((0, round(im.height * top), im.width, round(im.height * bottom)))
+
+
+# Per-key pixel transforms, applied after loading the source.
+TRANSFORMS = {
+    "asztro/hold-lap": moon_on_page,
+    "kozosseg/egbolt-allo": portrait(0.5),
+    "asztro/orion-kod-szeles": band(0.22, 0.62),
+}
 
 # Open Graph image: center crop of this key's source.
 OG_KEY = "kozosseg/csoportkep"
@@ -343,6 +384,8 @@ def main() -> int:
 
     for key, src, widths in items:
         im = load_srgb(src)
+        if key in TRANSFORMS:
+            im = TRANSFORMS[key](im)
         if key == OG_KEY:
             sources[key] = im
         src_w, src_h = im.size

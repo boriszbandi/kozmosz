@@ -552,3 +552,17 @@ async fn feed_work_survives_a_panic() {
     // nor the refresh loop dies with it.
     assert_eq!(off_thread("parsing", || -> u8 { panic!("malformed feed") }).await, None);
 }
+
+#[test]
+fn short_dates_and_today() {
+    let date = Date { year: 2026, month: 10, day: 8 };
+    assert_eq!(date.short(), "okt. 8.");
+    assert_eq!(date.weekday_name(), "csütörtök");
+    assert_eq!(Date { year: 2026, month: 9, day: 23 }.short(), "szept. 23.");
+    let now: jiff::Timestamp = "2026-10-08T21:30:00Z".parse().unwrap();
+    let zone = jiff::tz::TimeZone::get("Europe/Budapest").unwrap();
+    // 23:30 in Budapest is still the 8th; 22:30Z would already be the 9th.
+    assert_eq!(super::feed::build(&[], now, &zone).today, Some(date));
+    let later: jiff::Timestamp = "2026-10-08T22:30:00Z".parse().unwrap();
+    assert_eq!(super::feed::build(&[], later, &zone).today, Some(Date { year: 2026, month: 10, day: 9 }));
+}

@@ -15,7 +15,7 @@ pub fn NotFound() -> impl IntoView {
         <PageHeader title="Ez az oldal nem létezik">
             <p class="page-lead">"Lehet, hogy elköltözött, amikor megújult az oldal."</p>
             <div class="actions">
-                <a class="button button-primary" href="/">"Kezdőlap"</a>
+                <a class="button button-signal" href="/">"Kezdőlap"</a>
             </div>
         </PageHeader>
     }

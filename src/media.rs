@@ -14,26 +14,33 @@ pub fn Picture(
     #[prop(optional)]
     eager: bool,
     #[prop(optional, into)] class: Option<String>,
+    /// Art direction: (media query, key of a differently cropped image, its `sizes`), used
+    /// while the query matches, e.g. a portrait crop for a full-bleed hero on phones.
+    #[prop(optional)]
+    art: Option<(&'static str, &'static str, &'static str)>,
 ) -> impl IntoView {
     let Some(image) = images::get(&key) else {
         leptos::logging::error!("unknown image key: {key}");
         return None;
     };
-    let srcset = |ext: &str| {
-        image
-            .widths
-            .iter()
-            .map(|w| format!("/img/{}-{w}.{ext} {w}w", image.key))
-            .collect::<Vec<_>>()
-            .join(", ")
-    };
     let largest = image.widths.last().copied().unwrap_or(image.width);
+    let art = art.and_then(|(media, key, sizes)| {
+        let alt_image = images::get(key);
+        if alt_image.is_none() {
+            leptos::logging::error!("unknown image key: {key}");
+        }
+        alt_image.map(|i| (media, i, sizes))
+    });
     Some(view! {
         <picture class=class>
-            <source type="image/avif" srcset=srcset("avif") sizes=sizes/>
+            {art.map(|(media, i, art_sizes)| view! {
+                <source media=media type="image/avif" srcset=srcset(i, "avif") sizes=art_sizes/>
+                <source media=media type="image/jpeg" srcset=srcset(i, "jpg") sizes=art_sizes/>
+            })}
+            <source type="image/avif" srcset=srcset(image, "avif") sizes=sizes/>
             <img
                 src=format!("/img/{}-{largest}.jpg", image.key)
-                srcset=srcset("jpg")
+                srcset=srcset(image, "jpg")
                 sizes=sizes
                 width=image.width.to_string()
                 height=image.height.to_string()
@@ -44,6 +51,10 @@ pub fn Picture(
             />
         </picture>
     })
+}
+
+fn srcset(image: &images::Image, ext: &str) -> String {
+    image.widths.iter().map(|w| format!("/img/{}-{w}.{ext} {w}w", image.key)).collect::<Vec<_>>().join(", ")
 }
 
 /// Rendered width of one `.gallery` grid tile (1180px container, minmax(260px, 1fr), 1rem gap).
@@ -58,6 +69,9 @@ pub fn Gallery(
     /// `sizes` of every tile; must match the layout the class produces.
     #[prop(default = GRID_SIZES)]
     sizes: &'static str,
+    /// What to print under each image.
+    #[prop(optional)]
+    captions: Captions,
 ) -> impl IntoView {
     let ratios: Vec<f32> = images
         .iter()
@@ -79,16 +93,71 @@ pub fn Gallery(
                     let full = images::get(&image.key)
                         .map(|i| format!("/img/{}-{}.jpg", i.key, i.widths.last().copied().unwrap_or(i.width)))
                         .unwrap_or_default();
+                    let caption_hidden = matches!(captions, Captions::Alt);
+                    let (alt, caption) = match captions {
+                        Captions::None => (image.alt, None),
+                        // The alt names the link; the caption repeats it visually only.
+                        Captions::Alt => (image.alt.clone(), Some(view! { {image.alt} }.into_any())),
+                        Captions::ReceivedAt => {
+                            let time = received_at(&image.key);
+                            let caption = time.map(|(iso, label)| {
+                                view! { <time datetime=iso>{label}</time> }.into_any()
+                            });
+                            (image.alt, caption)
+                        }
+                    };
                     view! {
                         <li>
-                            <a href=full>
-                                <Picture key=image.key alt=image.alt sizes=sizes/>
-                            </a>
+                            <figure>
+                                <a href=full>
+                                    <Picture key=image.key alt=alt sizes=sizes/>
+                                </a>
+                                {caption.map(|c| view! {
+                                    <figcaption aria-hidden=caption_hidden.then_some("true")>{c}</figcaption>
+                                })}
+                            </figure>
                         </li>
                     }
                 })
                 .collect_view()}
         </ul>
+    }
+}
+
+/// Captions under gallery images.
+#[derive(Clone, Copy, Default)]
+pub enum Captions {
+    #[default]
+    None,
+    /// The alt text (e.g. subject and photographer) shown as the caption too; the caption is
+    /// hidden from screen readers because the alt already names the link.
+    Alt,
+    /// Reception time encoded in the file name of SSTV images ("sstv/20241113-202308").
+    ReceivedAt,
+}
+
+/// ("2024-11-13T20:23:08", "2024.11.13. 20:23:08") from a key ending in YYYYMMDD-HHMMSS.
+fn received_at(key: &str) -> Option<(String, String)> {
+    let stem = key.rsplit('/').next()?;
+    let digits: String = stem.chars().filter(char::is_ascii_digit).collect();
+    let tail = digits.get(digits.len().checked_sub(14)?..)?;
+    let (d, t) = tail.split_at(8);
+    let (y, mo, da) = (&d[..4], &d[4..6], &d[6..]);
+    let (h, mi, se) = (&t[..2], &t[2..4], &t[4..]);
+    let valid = (1..=12).contains(&mo.parse::<u8>().ok()?) && (1..=31).contains(&da.parse::<u8>().ok()?);
+    valid.then(|| (format!("{y}-{mo}-{da}T{h}:{mi}:{se}"), format!("{y}.{mo}.{da}. {h}:{mi}:{se}")))
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn reception_times_from_file_names() {
+        assert_eq!(
+            super::received_at("sstv/20241113-202308").unwrap().1,
+            "2024.11.13. 20:23:08"
+        );
+        assert_eq!(super::received_at("sstv/pd120-20241116-174408").unwrap().0, "2024-11-16T17:44:08");
+        assert_eq!(super::received_at("sstv/img-3217"), None);
     }
 }
 

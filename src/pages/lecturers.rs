@@ -78,7 +78,7 @@ pub fn Lecturers() -> impl IntoView {
     view! {
         <DocMeta doc=page/>
         <PageHeader title=page.title.clone()/>
-        <section class="container section-tight">
+        <section class="container page-body">
             <ul class="lecturers" role="list">
                 {lecturers()
                     .into_iter()
@@ -90,7 +90,7 @@ pub fn Lecturers() -> impl IntoView {
                                     <Picture
                                         key=p.key
                                         alt=p.alt
-                                        sizes="(width > 1100px) 520px, (width > 760px) 46vw, 92vw"
+                                        sizes="(width > 1280px) 588px, (width >= 768px) 46vw, 92vw"
                                         class="lecturer-photo"
                                         eager={i < 2}
                                     />

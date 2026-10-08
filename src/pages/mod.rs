@@ -50,7 +50,7 @@ fn Blocks(blocks: &'static [Block]) -> impl IntoView {
         .collect_view()
 }
 
-/// Page heading area shared by inner pages.
+/// Page heading area shared by inner pages: optional parent link, title, then any children.
 #[component]
 fn PageHeader(
     #[prop(into)] title: String,
@@ -60,14 +60,69 @@ fn PageHeader(
     #[prop(optional)] children: Option<Children>,
 ) -> impl IntoView {
     view! {
-        <header class="page-header container">
+        <header class="page-head container">
             {parent.map(|(label, href)| view! {
-                <nav class="breadcrumb" aria-label="Morzsamenü">
+                <nav class="crumbs" aria-label="Morzsamenü">
                     <a href=href>{label}</a>
+                    <span aria-hidden="true">"/"</span>
                 </nav>
             })}
-            <h1>{title}</h1>
+            <h1 class="page-title">{title}</h1>
             {children.map(|c| c())}
         </header>
+    }
+}
+
+/// Plain text of an HTML fragment up to its first sentence end (". " before a capital letter).
+fn first_sentence(html: &str) -> String {
+    let mut text = String::new();
+    let mut in_tag = false;
+    for c in html.chars() {
+        match c {
+            '<' => in_tag = true,
+            '>' => in_tag = false,
+            c if !in_tag => text.push(c),
+            _ => {}
+        }
+    }
+    let text = text.replace("&amp;", "&").replace("&quot;", "\"").replace("&#39;", "'");
+    let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let chars: Vec<char> = text.chars().collect();
+    for i in 0..chars.len().saturating_sub(2) {
+        if chars[i] == '.' && chars[i + 1] == ' ' && chars[i + 2].is_uppercase() {
+            return chars[..=i].iter().collect();
+        }
+    }
+    text
+}
+
+#[cfg(test)]
+mod tests {
+    /// Image keys named in code (not in the Markdown) must exist in src/images.rs.
+    #[test]
+    fn hard_coded_images_exist() {
+        use super::{contact, home, projects};
+        for key in [
+            home::HERO_IMAGE,
+            home::HERO_IMAGE_TALL,
+            home::COMMUNITY_IMAGE,
+            home::PROJECTS_IMAGE,
+            contact::CONTACT_IMAGE,
+            projects::ASTRO_IMAGE,
+            projects::ASTRO_IMAGE_WIDE,
+            projects::SSTV_CARD_IMAGE,
+            projects::SSTV_HERO_IMAGE,
+        ] {
+            assert!(crate::images::get(key).is_some(), "missing image {key}");
+        }
+    }
+
+    #[test]
+    fn first_sentence_skips_abbreviations() {
+        assert_eq!(
+            super::first_sentence("<p>A C3S Kft. magyar cég vezetője. Korábban mást csinált.</p>"),
+            "A C3S Kft. magyar cég vezetője."
+        );
+        assert_eq!(super::first_sentence("<p>Egy mondat.</p>"), "Egy mondat.");
     }
 }

@@ -25,17 +25,19 @@ pub fn About() -> impl IntoView {
     view! {
         <DocMeta doc=page/>
         <PageHeader title=page.title.clone()/>
-        <section class="container section-tight split">
+        <section class="container page-body about">
             {photo.map(|p| view! {
-                <Picture key=p.key alt=p.alt sizes="(width > 1100px) 620px, (width > 860px) 55vw, 92vw" class="split-media" eager=true/>
+                <figure class="frame">
+                    <Picture key=p.key alt=p.alt sizes="(width > 1280px) 690px, (width > 768px) 56vw, 92vw" eager=true/>
+                </figure>
             })}
-            <div class="split-text">
-                {text.into_iter().map(|html| view! { <div class="prose lead" inner_html=html></div> }).collect_view()}
+            <div class="about-text">
+                {text.into_iter().map(|html| view! { <div class="statement" inner_html=html></div> }).collect_view()}
             </div>
         </section>
         {page.sections.iter().map(|s| view! {
             <section class="container section" aria-label=s.heading.clone()>
-                <h2>{s.heading.clone()}</h2>
+                <h2 class="section-title">{s.heading.clone()}</h2>
                 {s.blocks.iter().map(|b| match b {
                     Block::Images(images) => view! {
                         <Gallery
