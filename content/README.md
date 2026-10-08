@@ -2,7 +2,7 @@
 
 A https://kozmosz.bme.hu WordPress oldal szövegei, **szó szerint** (2026-10-08-i állapot). Forrás: a nyilvános REST API (`/wp-json/wp/v2/pages`) és az oldalak kész HTML-je. Belépés nélkül szedtem le, így csak a publikált tartalom került ide, a piszkozatok nem.
 
-A szövegeken nem javítottam: az elírásokat lent listázom, és ott kell eldönteni, mit javítsunk. A képek URL-jei még a régi oldalra mutatnak. A letöltött eredetiket a [media.md](media.md) sorolja fel.
+A szövegeken nem javítottam: az elírásokat lent listázom, és ott kell eldönteni, mit javítsunk. A képek URL-jei még a régi oldalra mutatnak. A letöltött eredetiket (78 fájl: használt képek, a médiatár többi fájlja és a nyilvános Drive-képek) a [media.md](media.md) sorolja fel.
 
 ## Oldaltérkép
 
@@ -86,8 +86,8 @@ Megjegyzések:
 
 ## Nyitott kérdések
 
-1. **Drive képek:** a 3 Drive mappa 57 képéből csak 14 nyilvános. A többit a `bme.kozmosz` fiókból kell exportálni (lásd [media.md](media.md)).
-2. **Fel nem használt médiafájlok:** 42 fájl van a médiatárban (SVG logók, közösségi fotók, asztrofotók). Letöltsem őket?
+1. **Drive képek:** a 14 nyilvános Drive-képet letöltöttem. A maradék 43-at (28 asztrofotó, 15 NOAA-kép) a `bme.kozmosz` fiókból kell exportálni (lásd [media.md](media.md)).
+2. **Logó:** a médiatár SVG logója üres. Vektoros „Egyetemi Kozmosz Szakkollégium” logó csak akkor lesz, ha valaki megvan az eredeti, vagy ha vektorizáljuk a PNG-t.
 3. **Elírások:** javítsuk őket az új oldalon?
 4. **Arculat:** a régi WordPress sárga/barna, a React verzió lila.
 5. **URL-ek:** jók a javasolt magyar útvonalak? Hová kerül élesben az oldal?
