@@ -31,6 +31,9 @@ Top priority: fastest possible load. These rules override any design skill or DE
 - If its HTML is identical for every request, add the path to `STATIC_PAGES`: it is rendered once at
   startup and served from memory, precompressed (src/server.rs `PageCache`).
 - The 404 page is also rendered once and cached, so `NotFound` must not depend on the request path.
+- Calendar: `src/calendar/` downloads the club's public Google Calendar feed at startup and every
+  10 minutes, then re-renders every cached page (so /programjaink stays current). Feed text is
+  rendered escaped; attendee/organizer data and e-mail addresses are never shown.
 - UI text is Hungarian. Code, comments and identifiers are English.
 
 ## Commands

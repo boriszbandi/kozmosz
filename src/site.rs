@@ -12,6 +12,12 @@ pub const MAPS_URL: &str =
 pub const FACEBOOK_URL: &str = "https://www.facebook.com/bme.kozmosz";
 pub const INSTAGRAM_URL: &str = "https://www.instagram.com/bme.kozmosz/";
 
+/// Public iCal feed of the club's Google Calendar. The server downloads it and lists the events
+/// on the programs page (src/calendar.rs).
+#[cfg(feature = "ssr")]
+pub const CALENDAR_FEED_URL: &str =
+    "https://calendar.google.com/calendar/ical/bme.kozmosz%40gmail.com/public/basic.ics";
+
 /// Google Calendar of the club: the embeddable view and two ways to subscribe to the live feed
 /// (a plain https .ics link would only download a one-off snapshot).
 pub const CALENDAR_EMBED_URL: &str =
@@ -39,14 +45,15 @@ pub const NAV: &[NavItem] = &[
         label: "Projektek",
         href: "/projektek",
         children: &[
-            ("Időjárás műhold", "/projektek/idojaras-muhold"),
-            ("ISSTV Felvételek", "/projektek/isstv"),
+            ("Időjárásműhold", "/projektek/idojaras-muhold"),
+            ("ISSTV-felvételek", "/projektek/isstv"),
             ("Asztrofotóink", "/projektek/asztrofotok"),
         ],
     },
 ];
 
 /// Old WordPress URLs that moved, answered with 301 so links and search results keep working.
+#[cfg(feature = "ssr")]
 pub const REDIRECTS: &[(&str, &str)] = &[
     ("/notlikeus", "/rolunk"),
     ("/contact", "/elerhetoseg"),

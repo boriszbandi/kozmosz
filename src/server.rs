@@ -2,10 +2,10 @@
 
 use std::{
     collections::HashMap,
-    future::Future,
     hash::{DefaultHasher, Hash, Hasher},
     io::Write,
-    sync::{Arc, OnceLock},
+    sync::{Arc, OnceLock, PoisonError, RwLock},
+    time::Duration,
 };
 
 use axum::{
@@ -24,6 +24,8 @@ use axum::{
 };
 use leptos::config::{Env, LeptosOptions};
 use tower::ServiceExt;
+
+use crate::calendar::{Feed, REFRESH_EVERY};
 
 const HTML: HeaderValue = HeaderValue::from_static("text/html; charset=utf-8");
 const NO_CACHE: HeaderValue = HeaderValue::from_static("no-cache");
@@ -59,9 +61,21 @@ pub fn inline_css(options: &LeptosOptions) -> Option<&'static str> {
 
 /// Rendered HTML kept in memory in every encoding we serve: the static pages, plus the
 /// 404 page (its HTML does not depend on the requested path).
+///
+/// [`PageCache::refresh`] renders everything again (after each calendar refresh, so the
+/// programs page follows the feed and the clock) and swaps the new set in at once. Requests
+/// only take a read lock long enough to clone one `Arc`.
 pub struct PageCache {
-    pages: HashMap<&'static str, Page>,
-    not_found: Option<Page>,
+    /// Renders the cached paths; any other path must render the 404 page.
+    renderer: Router,
+    paths: &'static [&'static str],
+    pages: RwLock<Arc<Pages>>,
+}
+
+#[derive(Default)]
+struct Pages {
+    by_path: HashMap<&'static str, Arc<Page>>,
+    not_found: Option<Arc<Page>>,
 }
 
 struct Page {
@@ -71,36 +85,96 @@ struct Page {
     etag: HeaderValue,
 }
 
+/// A path no route matches, rendered as the 404 page.
+const NOT_FOUND_PROBE: &str = "/__not_found__";
+
 impl PageCache {
-    /// Renders every path once through `app`, and the 404 page through `render_not_found`.
-    /// Pages that do not answer 200 are left out (and logged), so they render normally.
-    pub async fn warm<F, Fut>(app: Router, paths: &[&'static str], render_not_found: F) -> Arc<Self>
-    where
-        F: FnOnce(Request) -> Fut,
-        Fut: Future<Output = Response>,
-    {
-        let mut pages = HashMap::with_capacity(paths.len());
-        for &path in paths {
-            let response = app.clone().oneshot(get(path)).await.expect("infallible");
-            if response.status() != StatusCode::OK {
-                leptos::logging::error!("page cache: {path} answered {}, not cached", response.status());
-                continue;
-            }
-            pages.insert(path, Page::new(body(response).await));
-        }
-        // Any path no route matches renders the NotFound page.
-        let response = render_not_found(get("/__not_found__")).await;
-        let not_found = Some(Page::new(body(response).await));
-        Arc::new(Self { pages, not_found })
+    /// Renders every path once through `renderer` (see [`PageCache::refresh`]).
+    pub async fn new(renderer: Router, paths: &'static [&'static str]) -> Arc<Self> {
+        let cache = Arc::new(Self { renderer, paths, pages: RwLock::default() });
+        cache.refresh().await;
+        cache
     }
+
+    /// Renders every page again and swaps the new set in. A page whose HTML did not change keeps
+    /// its compressed bodies and ETag. A page that fails to render keeps its previous version;
+    /// one never rendered with 200 stays uncached, so it renders per request.
+    pub async fn refresh(&self) {
+        let old = self.pages.read().unwrap_or_else(PoisonError::into_inner).clone();
+        let mut by_path = HashMap::with_capacity(self.paths.len());
+        for &path in self.paths {
+            let previous = old.by_path.get(path);
+            match self.render(path, StatusCode::OK, previous).await {
+                Some(page) => {
+                    by_path.insert(path, page);
+                }
+                None => {
+                    if let Some(previous) = previous {
+                        by_path.insert(path, previous.clone());
+                    }
+                }
+            }
+        }
+        let not_found = self
+            .render(NOT_FOUND_PROBE, StatusCode::NOT_FOUND, old.not_found.as_ref())
+            .await
+            .or_else(|| old.not_found.clone());
+        *self.pages.write().unwrap_or_else(PoisonError::into_inner) = Arc::new(Pages { by_path, not_found });
+    }
+
+    async fn render(&self, path: &str, expected: StatusCode, previous: Option<&Arc<Page>>) -> Option<Arc<Page>> {
+        let Ok(response) = self.renderer.clone().oneshot(get(path)).await;
+        if response.status() != expected {
+            leptos::logging::error!("page cache: {path} answered {}", response.status());
+            return None;
+        }
+        let html = body(response)
+            .await
+            .map_err(|err| leptos::logging::error!("page cache: {path} failed to render: {err}"))
+            .ok()?;
+        if let Some(previous) = previous.filter(|p| p.identity == html) {
+            return Some(previous.clone());
+        }
+        // Brotli 11 takes a while: keep it off the async worker threads.
+        tokio::task::spawn_blocking(move || Arc::new(Page::new(html)))
+            .await
+            .map_err(|err| leptos::logging::error!("page cache: compressing {path} failed: {err}"))
+            .ok()
+    }
+
+    fn page(&self, path: &str) -> Option<Arc<Page>> {
+        self.pages.read().unwrap_or_else(PoisonError::into_inner).by_path.get(path).cloned()
+    }
+
+    fn not_found(&self) -> Option<Arc<Page>> {
+        self.pages.read().unwrap_or_else(PoisonError::into_inner).not_found.clone()
+    }
+}
+
+/// Background task: downloads the calendar every [`REFRESH_EVERY`] and renders the cached pages
+/// again after every attempt, successful or not, so "upcoming" and "past" also follow the clock.
+pub fn spawn_calendar_refresh(mut feed: Feed, cache: Arc<PageCache>) {
+    tokio::spawn(async move {
+        let mut ticks = tokio::time::interval_at(tokio::time::Instant::now() + REFRESH_EVERY, REFRESH_EVERY);
+        ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            ticks.tick().await;
+            feed.refresh(Duration::from_secs(30)).await;
+            // In its own task, so a panicking render cannot end this loop.
+            let cache = cache.clone();
+            if let Err(err) = tokio::spawn(async move { cache.refresh().await }).await {
+                leptos::logging::error!("page cache: refresh failed: {err}");
+            }
+        }
+    });
 }
 
 fn get(path: &str) -> Request {
     Request::get(path).body(Body::empty()).expect("valid request")
 }
 
-async fn body(response: Response) -> Bytes {
-    to_bytes(response.into_body(), usize::MAX).await.expect("in-memory body")
+async fn body(response: Response) -> Result<Bytes, axum::Error> {
+    to_bytes(response.into_body(), usize::MAX).await
 }
 
 impl Page {
@@ -117,8 +191,7 @@ impl Page {
         let mut hasher = DefaultHasher::new();
         html.hash(&mut hasher);
         // Weak: the same tag covers every content-encoding of this page.
-        let etag = HeaderValue::from_str(&format!("W/\"{:016x}\"", hasher.finish()))
-            .expect("ascii");
+        let etag = HeaderValue::from_str(&format!("W/\"{:016x}\"", hasher.finish())).expect("ascii");
 
         Self { identity: html, br: br.into(), gzip: gzip.into(), etag }
     }
@@ -166,7 +239,7 @@ pub async fn serve_cached(State(cache): State<Arc<PageCache>>, req: Request, nex
     if req.method() != Method::GET && req.method() != Method::HEAD {
         return next.run(req).await;
     }
-    match cache.pages.get(req.uri().path()) {
+    match cache.page(req.uri().path()) {
         Some(page) => page.respond(&req, StatusCode::OK),
         None => next.run(req).await,
     }
@@ -193,7 +266,7 @@ pub async fn redirects(req: Request, next: Next) -> Response {
 
 /// Fallback for every path that is neither a page nor a file: the cached 404 page.
 pub async fn serve_not_found(State(cache): State<Arc<PageCache>>, req: Request) -> Response {
-    match &cache.not_found {
+    match cache.not_found() {
         Some(page) => page.respond(&req, StatusCode::NOT_FOUND),
         None => (StatusCode::NOT_FOUND, "404").into_response(),
     }
@@ -217,7 +290,7 @@ fn accepts(header: &str, coding: &str) -> bool {
         let name = parts.next().unwrap_or("").trim();
         let q_zero = parts
             .filter_map(|p| p.trim().strip_prefix("q="))
-            .any(|q| q.trim().parse::<f32>().map_or(false, |q| q <= 0.0));
+            .any(|q| q.trim().parse::<f32>().is_ok_and(|q| q <= 0.0));
         if name.eq_ignore_ascii_case(coding) {
             return !q_zero;
         }
@@ -326,22 +399,58 @@ mod tests {
         assert_eq!(ok.status(), StatusCode::OK);
         assert_eq!(ok.headers()[CONTENT_ENCODING], "br");
         assert_eq!(ok.headers()[ETAG], page.etag);
-        assert_eq!(body(ok).await, page.br);
+        assert_eq!(body(ok).await.unwrap(), page.br);
 
         let etag = page.etag.to_str().unwrap();
         let cached = page.respond(&request(Method::GET, &[("if-none-match", etag)]), StatusCode::OK);
         assert_eq!(cached.status(), StatusCode::NOT_MODIFIED);
-        assert!(body(cached).await.is_empty());
+        assert!(body(cached).await.unwrap().is_empty());
 
         let head = page.respond(&request(Method::HEAD, &[]), StatusCode::OK);
         assert_eq!(head.headers()[CONTENT_LENGTH], page.identity.len().to_string());
-        assert!(body(head).await.is_empty());
+        assert!(body(head).await.unwrap().is_empty());
 
         // 404s never answer 304 and carry no validator.
         let missing = page.respond(&request(Method::GET, &[("if-none-match", etag)]), StatusCode::NOT_FOUND);
         assert_eq!(missing.status(), StatusCode::NOT_FOUND);
         assert!(!missing.headers().contains_key(ETAG));
-        assert_eq!(body(missing).await, page.identity);
+        assert_eq!(body(missing).await.unwrap(), page.identity);
+    }
+
+    #[tokio::test]
+    async fn page_cache_refresh() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use axum::routing::get as route;
+
+        static VERSION: AtomicUsize = AtomicUsize::new(1);
+        let renderer = Router::new()
+            .route("/valtozo", route(|| async { format!("v{}", VERSION.load(Ordering::SeqCst)) }))
+            .route("/allando", route(|| async { "ugyanaz" }))
+            .route("/hibas", route(|| async { StatusCode::INTERNAL_SERVER_ERROR }))
+            .fallback(|| async { (StatusCode::NOT_FOUND, "nincs ilyen") });
+        let cache = PageCache::new(renderer, &["/valtozo", "/allando", "/hibas"]).await;
+
+        assert_eq!(cache.page("/valtozo").unwrap().identity, "v1");
+        assert!(cache.page("/hibas").is_none(), "non-200 pages are not cached");
+        assert_eq!(cache.not_found().unwrap().identity, "nincs ilyen");
+        let (before, constant, not_found) =
+            (cache.page("/valtozo").unwrap(), cache.page("/allando").unwrap(), cache.not_found().unwrap());
+
+        VERSION.store(2, Ordering::SeqCst);
+        cache.refresh().await;
+        let after = cache.page("/valtozo").unwrap();
+        assert_eq!(after.identity, "v2");
+        assert_ne!(after.etag, before.etag);
+        // Unchanged pages keep their compressed bodies and ETag.
+        assert!(Arc::ptr_eq(&constant, &cache.page("/allando").unwrap()));
+        assert!(Arc::ptr_eq(&not_found, &cache.not_found().unwrap()));
+
+        // Served through the middleware.
+        let app = Router::new()
+            .fallback(|| async { "not cached" })
+            .layer(axum::middleware::from_fn_with_state(cache.clone(), serve_cached));
+        let response = app.oneshot(Request::get("/valtozo").body(Body::empty()).unwrap()).await.unwrap();
+        assert_eq!(body(response).await.unwrap(), "v2");
     }
 
     async fn redirect_of(uri: &str) -> Option<String> {

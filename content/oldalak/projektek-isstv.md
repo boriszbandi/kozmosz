@@ -1,12 +1,12 @@
 ---
-cim: "ISSTV Felvételek"
+cim: "ISSTV-felvételek"
 utvonal: "/projektek/isstv"
 regi_url: "https://kozmosz.bme.hu/isstv-felvetelek/"
-leiras: "A Nemzetközi Űrállomásról sugárzott SSTV képeket saját készítésű antennákkal töltjük le, a BME környékén, épületek tetejéről vagy a Gellérthegyről."
-kivonat: "A Kozmoszosok rendszeresen foglalkozunk a Nemzetközi Űrállomásról sugárzott SSTV (Slow Scan Television) képek vételével."
+leiras: "A Nemzetközi Űrállomásról sugárzott SSTV-képeket saját készítésű antennákkal töltjük le, a BME környékén, épületek tetejéről vagy a Gellérthegyről."
+kivonat: "Kozmoszosként rendszeresen foglalkozunk a Nemzetközi Űrállomásról sugárzott SSTV-képek (Slow Scan Television) vételével."
 ---
 
-A Kozmoszosok rendszeresen foglalkozunk a Nemzetközi Űrállomásról sugárzott SSTV (Slow Scan Television) képek vételével. Az SSTV (Slow-scan television) egy vezeték nélküli analóg képtovábbító eljárás. Ennek során a képek különböző fényerősségű és színű pixeleit eltérő frekvenciájú hangjelek kódolják. A Szakkollégiumban saját készítésű antennákkal szoktuk letölteni ezeket a képeket a világűrből, leggyakrabban a BME környékén, épületek tetejéről vagy a Gellérthegyről, ahol tisztább a vétel és szabadabb a rálátás az égre.
+Kozmoszosként rendszeresen foglalkozunk a Nemzetközi Űrállomásról sugárzott SSTV-képek (Slow Scan Television) vételével. Az SSTV (Slow Scan Television) egy vezeték nélküli analóg képtovábbító eljárás. Ennek során a képek különböző fényerősségű és színű pixeleit eltérő frekvenciájú hangjelek kódolják. A Szakkollégiumban saját készítésű antennákkal szoktuk letölteni ezeket a képeket a világűrből, leggyakrabban a BME környékén, épületek tetejéről vagy a Gellérthegyről, ahol tisztább a vétel és szabadabb a rálátás az égre.
 
 ![A Szputnyik-1 egy technikussal, „67th anniversary of the launch of the first artificial Earth satellite”](kep:sstv/20241012-125306)
 ![Sergey Samburov RV3DR és Owen Garriott W5LFL 2008-ban, zajos vétel](kep:sstv/20241113-002156)

@@ -1,4 +1,5 @@
 pub mod app;
+pub mod calendar;
 mod content;
 #[allow(dead_code)] // generated icon palette: not every icon is in use
 mod icons;

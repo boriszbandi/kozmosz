@@ -73,15 +73,26 @@ Megjegyzések:
 - Dr. Kovács Kálmán: „Iráyítástechnikai” → *Irányítástechnikai*; „Villamosmérnöki és Informatika Karának” → *Informatikai Karának*
 - Somodi Máté: „A BME-n végzet” → *végzett*
 - Detre Örs Hunor: „szervezéséve.” → *szervezésével.*
-- Kisebbek: „Szovjet-Magyar” → *szovjet–magyar* (Dr. Szabó József), „RNS világ” → *RNS-világ* (Medvegy Anna), „Kárpát medencét” → *Kárpát-medencét* (Időjárás műhold).
+- Kisebbek: „Szovjet-Magyar” → *szovjet–magyar* (Dr. Szabó József), „RNS világ” → *RNS-világ* (Medvegy Anna), „Kárpát medencét” → *Kárpát-medencét* (Időjárásműhold).
 - Az „Asztrófotóink” (menü és oldalcím) és az „Asztrofotóink” (címsor és URL) eltért egymástól: egységesen *Asztrofotóink*.
 - Rólunk: „Ha érdekel a világűr és szeretnél…” → *Ha érdekel a világűr, és szeretnél…*
 - Az angol idézőjelek magyarra cserélve: “Puli” → *„Puli”*, “vízszimatoló” → *„vízszimatoló”* (Dr. Pacher Tibor).
+- Oldalcímek: „Időjárás műhold” → *Időjárásműhold*, „ISSTV Felvételek” → *ISSTV-felvételek*.
+- Kötőjel a betűszós és összetett szavakban: „SSTV képek/képeket” → *SSTV-képek/SSTV-képeket* (ISSTV-felvételek, Projektek); „APT képeit” → *APT-képeit*, „APT (Automatic Picture Transmission) képeket” → *APT-képeket (Automatic Picture Transmission)* (Időjárásműhold); „e-mail címe” → *e-mail-címe* (Elérhetőség, kétszer); „rádióamatőr mozgalomnak” → *rádióamatőr-mozgalomnak* (Dr. Gschwindt András).
+- ISSTV-felvételek: a két eltérő kifejtés egységesítve, „SSTV (Slow-scan television)” → *SSTV (Slow Scan Television)*, az első mondatban „SSTV (Slow Scan Television) képek” → *SSTV-képek (Slow Scan Television)*.
+- Vegyes személy a projektoldalakon, egységesen többes szám első személy: „A Kozmoszosok aktívan foglalkoznak” → *Kozmoszosként aktívan foglalkozunk* (Asztrofotóink); „A Kozmoszosok … is foglalkoznak” → *Kozmoszosként … is foglalkozunk* (Időjárásműhold); „A Kozmoszosok rendszeresen foglalkozunk” → *Kozmoszosként rendszeresen foglalkozunk* (ISSTV-felvételek). A `kivonat` és a `leiras` mezőben is.
+- Időjárásműhold: „Mivel a régebbi NOAA-műholdak működése fokozatosan megszűnt, így hamarosan” → *…megszűnt, hamarosan*.
+- Dr. Stépán Gábor: „Műszaki Mechanika tanszék” → *Műszaki Mechanikai Tanszék*.
+- Dr. Kovács Kálmán: „Irányítástechnikai és Informatikai tanszék” → *Irányítástechnika és Informatika Tanszék*.
+- Dr. Bacsárdi László: „Mérnök-informatikus” → *Mérnökinformatikus*.
+- Szabó Nimród: a hiányos első mondat teljes lett a vessző elhagyásával, és a köznevek kisbetűsek: „Szabó Nimród Zombor, az ELTE TTK-n végzett Földtudományi alapképzésen, Geológia specializáción” → *Szabó Nimród Zombor az ELTE TTK-n végzett földtudományi alapképzésen, geológia specializáción*; „a Geológus mesterképzés” → *a geológus mesterképzés*.
+- Somodi Máté: „a Bécsi Egyetemen elméleti fizika területen” → *a Bécsi Egyetemen az elméleti fizika területén*.
+- Pál András: „nagytömegű adatfeldolgozás” → *nagy tömegű adatfeldolgozás*.
+- Dr. Szabó Róbert: „kulcsszerepet vállal olyan jelentős űrmissziók, mint a Kepler, a TESS és a PLATO űrtávcsövek adatainak elemzésében” → *kulcsszerepet vállal olyan jelentős űrmissziók adatainak elemzésében, mint a Kepler, a TESS és a PLATO űrtávcsövek*.
+- Dr. Nagy Balázs Vince: „elsősorban emberi látás vizsgálatával” → *elsősorban az emberi látás vizsgálatával*.
 
 **Ellenőrizendő, nem javítottuk** (szó szerint maradt):
-- Szabó Nimród biójának első mondata hiányos („Szabó Nimród Zombor, az ELTE TTK-n végzett…”).
 - A „Nyugat-Magyarországi Egyetem” név elavult lehet (Dr. Bacsárdi László).
-- Az Asztrofotóink bevezetője harmadik személyben kezd („A Kozmoszosok … foglalkoznak”), aztán többes szám első személyre vált („kémleljük”). Ugyanígy az Időjárás műhold oldalon („foglalkoznak”, majd „figyeljük”).
 
 **Technikai hibák:**
 - `lang="en-US"` és `og:locale=en_US` magyar tartalom mellett. Üres oldalnév, ezért a címek „ -”-re végződnek.

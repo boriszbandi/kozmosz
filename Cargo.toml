@@ -21,11 +21,17 @@ pulldown-cmark = { version = "0.13.4", default-features = false, features = ["ht
 # server-only (ssr)
 leptos_axum = { version = "0.8.10", optional = true }
 axum = { version = "0.8.9", optional = true }
-tokio = { version = "1.53", features = ["rt-multi-thread", "macros", "signal"], optional = true }
+tokio = { version = "1.53", features = ["rt-multi-thread", "macros", "signal", "time"], optional = true }
 tower = { version = "0.5", optional = true }
 tower-http = { version = "0.7.1", features = ["fs", "compression-br", "compression-gzip", "compression-zstd", "set-header"], optional = true }
 brotli = { version = "8", optional = true }
 flate2 = { version = "1", optional = true }
+# Programs page: the club's public Google Calendar feed is fetched and parsed on the server.
+# rustls (aws-lc-rs + the OS certificate store), gzip for the feed; no HTTP/2, proxy or charset support.
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "gzip"], optional = true }
+# Time zones for the feed (Europe/Budapest DST). The tzdb is compiled in, so the server does not
+# depend on the host's /usr/share/zoneinfo (Windows and minimal containers have none).
+jiff = { version = "0.2.38", default-features = false, features = ["std", "tzdb-bundle-always"], optional = true }
 
 # client-only (hydrate)
 wasm-bindgen = { version = "0.2.129", optional = true }
@@ -45,6 +51,8 @@ ssr = [
     "dep:tower-http",
     "dep:brotli",
     "dep:flate2",
+    "dep:reqwest",
+    "dep:jiff",
     "leptos/ssr",
     "leptos_meta/ssr",
     "leptos_router/ssr",

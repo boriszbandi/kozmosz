@@ -73,7 +73,8 @@ LEPTOS_HASH_FILES=true
 | `src/layout.rs` | fejléc, menü (mobilon JS nélküli `<details>`), lábléc, meta tagek |
 | `src/site.rs` | név, cím, e-mail, közösségi linkek, menü, régi URL-ek átirányítása |
 | `src/media.rs` | reszponzív `<picture>` (AVIF + JPEG), galéria, ikonok |
-| `src/server.rs` | memóriás oldal-cache, átirányítások, cache-fejlécek, beágyazott CSS |
+| `src/calendar/` | a klub Google Naptárának letöltése (10 percenként), iCal-feldolgozás, ismétlődő események, magyar dátumok |
+| `src/server.rs` | memóriás oldal-cache (naptárfrissítéskor újrarenderel), átirányítások, cache-fejlécek, beágyazott CSS |
 | `src/main.rs` | axum szerver összerakása |
 | `style/main.css` | az összes stílus (sima CSS) |
 | `tools/images.py` | képgenerálás: forrásfotókból `public/img/*` és `src/images.rs` |

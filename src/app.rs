@@ -11,8 +11,10 @@ use crate::{
     site,
 };
 
-/// Pages rendered once at startup and then served from memory, precompressed
-/// (see `server::page_cache`). Only list pages whose HTML is the same for every request.
+/// Pages rendered at startup and then served from memory, precompressed (see
+/// `server::PageCache`). They are rendered again after every calendar refresh (every 10
+/// minutes), which keeps /programjaink current. Only list pages whose HTML is the same for every
+/// request.
 pub const STATIC_PAGES: &[&str] = &[
     "/",
     "/rolunk",

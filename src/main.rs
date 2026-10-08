@@ -1,6 +1,8 @@
 #[cfg(feature = "ssr")]
 #[tokio::main]
 async fn main() {
+    use std::time::Duration;
+
     use axum::{
         handler::Handler,
         http::{header, HeaderValue},
@@ -10,9 +12,10 @@ async fn main() {
     };
     use kozmosz::{
         app::{shell, App, STATIC_PAGES},
+        calendar::Feed,
         server::{
-            cache_control, redirects, serve_cached, serve_not_found, shutdown_signal, CachePolicy,
-            PageCache,
+            cache_control, redirects, serve_cached, serve_not_found, shutdown_signal,
+            spawn_calendar_refresh, CachePolicy, PageCache,
         },
     };
     use leptos::{logging::log, prelude::*};
@@ -38,17 +41,24 @@ async fn main() {
         })
         .with_state(options.clone());
 
-    let render_not_found = leptos_axum::render_app_to_stream_in_order_with_context(
-        {
-            let options = options.clone();
-            move || provide_context(options.clone())
-        },
-        {
-            let options = options.clone();
-            move || shell(options.clone())
-        },
-    );
-    let cache = PageCache::warm(pages.clone(), STATIC_PAGES, render_not_found).await;
+    // The programs page lists events from the club's Google Calendar: download it before the
+    // pages are rendered (giving up after 5 s), then every 10 minutes in the background.
+    let mut feed = Feed::new();
+    feed.refresh(Duration::from_secs(5)).await;
+
+    // Renders the cached pages; any other path renders the 404 page.
+    let renderer = pages.clone().fallback({
+        let options = options.clone();
+        move |req: axum::extract::Request| {
+            let (context, app) = (options.clone(), options.clone());
+            leptos_axum::render_app_to_stream_in_order_with_context(
+                move || provide_context(context.clone()),
+                move || shell(app.clone()),
+            )(req)
+        }
+    });
+    let cache = PageCache::new(renderer, STATIC_PAGES).await;
+    spawn_calendar_refresh(feed, cache.clone());
 
     // Static files: precompressed .br/.gz when cargo-leptos made them (--precompress), except
     // /img and /fonts, whose formats are already compressed. Anything else gets the cached 404 page.
