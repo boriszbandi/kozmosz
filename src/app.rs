@@ -1,22 +1,37 @@
 use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, HashedStylesheet, MetaTags, Title};
 use leptos_router::{
-    components::{Route, Router, Routes, A},
+    components::{Route, Router, Routes},
     path,
 };
 
-use crate::pages::{About, Community, Home, NotFound};
+use crate::{
+    layout::{Footer, Header},
+    pages::{About, Contact, Home, Lecturers, NotFound, Programs, Project, Projects},
+    site,
+};
 
 /// Pages rendered once at startup and then served from memory, precompressed
 /// (see `server::page_cache`). Only list pages whose HTML is the same for every request.
-pub const STATIC_PAGES: &[&str] = &["/", "/kozosseg", "/rolunk"];
+pub const STATIC_PAGES: &[&str] = &[
+    "/",
+    "/rolunk",
+    "/elerhetoseg",
+    "/programjaink",
+    "/eloadoink",
+    "/projektek",
+    "/projektek/asztrofotok",
+    "/projektek/isstv",
+    "/projektek/idojaras-muhold",
+];
 
 /// Pages that contain at least one `#[island]`. Only these load the WASM bundle;
 /// every other page ships zero JavaScript.
 const ISLAND_PAGES: &[&str] = &[];
 
-/// Prefetch same-origin links on hover, prerender on pointerdown (Chromium; ignored elsewhere).
-const SPECULATION_RULES: &str = r#"{"prefetch":[{"where":{"href_matches":"/*"},"eagerness":"moderate"}],"prerender":[{"where":{"href_matches":"/*"},"eagerness":"conservative"}]}"#;
+/// Prefetch same-origin page links on hover, prerender on pointerdown (Chromium; ignored
+/// elsewhere). /img/ is excluded: gallery links point at full-size JPEGs.
+const SPECULATION_RULES: &str = r#"{"prefetch":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/img/*"}}]},"eagerness":"moderate"}],"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/img/*"}}]},"eagerness":"conservative"}]}"#;
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     let islands = needs_islands();
@@ -27,20 +42,12 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
             <head>
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <meta name="theme-color" content="#000000"/>
+                <meta name="theme-color" content="#1f1d1b"/>
                 <link rel="icon" href="/favicon.ico" sizes="32x32"/>
                 <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
                 <link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
-                // Mirrors the media queries of body::before in style/main.css exactly (range
-                // syntax: no gaps at fractional widths), so one background is fetched, early.
-                // Browsers without AVIF skip these and use image-set().
-                <link rel="preload" r#as="image" r#type="image/avif" fetchpriority="high"
-                    href="/img/home_bg-1920.avif" media="(width > 1280px)"/>
-                <link rel="preload" r#as="image" r#type="image/avif" fetchpriority="high"
-                    href="/img/home_bg-1280.avif"
-                    media="(900px < width <= 1280px), (width <= 900px) and (orientation: landscape)"/>
-                <link rel="preload" r#as="image" r#type="image/avif" fetchpriority="high"
-                    href="/img/home_bg-portrait-720.avif" media="(width <= 900px) and (orientation: portrait)"/>
+                // Heading font (Urbanist, subset for Hungarian): fetched in parallel with the HTML.
+                <link rel="preload" href="/fonts/urbanist-hu.woff2" r#as="font" r#type="font/woff2" crossorigin=""/>
                 <Styles options=options.clone()/>
                 <script type="speculationrules" inner_html=SPECULATION_RULES></script>
                 <AutoReload options=options.clone()/>
@@ -97,45 +104,30 @@ pub fn App() -> impl IntoView {
 
     view! {
         <Title formatter=|page: String| {
-            if page.is_empty() { "Kozmosz".to_owned() } else { format!("Kozmosz – {page}") }
+            if page.is_empty() { site::NAME.to_owned() } else { format!("{page} | {}", site::NAME) }
         }/>
         <Router>
             <Header/>
-            <main>
+            <main id="tartalom">
                 <Routes fallback=NotFound>
                     <Route path=path!("/") view=Home/>
-                    <Route path=path!("/kozosseg") view=Community/>
                     <Route path=path!("/rolunk") view=About/>
+                    <Route path=path!("/elerhetoseg") view=Contact/>
+                    <Route path=path!("/programjaink") view=Programs/>
+                    <Route path=path!("/eloadoink") view=Lecturers/>
+                    <Route path=path!("/projektek") view=Projects/>
+                    <Route
+                        path=path!("/projektek/asztrofotok")
+                        view=|| view! { <Project name="projektek-asztrofotok"/> }
+                    />
+                    <Route path=path!("/projektek/isstv") view=|| view! { <Project name="projektek-isstv"/> }/>
+                    <Route
+                        path=path!("/projektek/idojaras-muhold")
+                        view=|| view! { <Project name="projektek-idojaras-muhold"/> }
+                    />
                 </Routes>
             </main>
             <Footer/>
         </Router>
-    }
-}
-
-#[component]
-fn Header() -> impl IntoView {
-    view! {
-        <header class="site-nav">
-            <nav class="container nav">
-                <a href="/" class="brand" aria-label="Kozmosz – kezdőlap">
-                    <img src="/img/kozmosz-mark.svg" alt="" width="40" height="40"/>
-                    <span>"Kozmosz"</span>
-                </a>
-                <ul class="nav-links">
-                    <li><A href="/kozosseg">"Közösség"</A></li>
-                    <li><A href="/rolunk">"Rólunk"</A></li>
-                </ul>
-            </nav>
-        </header>
-    }
-}
-
-#[component]
-fn Footer() -> impl IntoView {
-    view! {
-        <footer class="site-footer">
-            <div class="container">"© Kozmosz közösség"</div>
-        </footer>
     }
 }

@@ -14,7 +14,7 @@ use axum::{
     http::{
         header::{
             ACCEPT_ENCODING, CACHE_CONTROL, CONTENT_ENCODING, CONTENT_LENGTH, CONTENT_TYPE, ETAG,
-            IF_NONE_MATCH, VARY,
+            IF_NONE_MATCH, LOCATION, VARY,
         },
         HeaderMap, HeaderValue, Method, StatusCode,
     },
@@ -172,6 +172,25 @@ pub async fn serve_cached(State(cache): State<Arc<PageCache>>, req: Request, nex
     }
 }
 
+/// Middleware: 301 for URLs of the old WordPress site and for paths with a trailing slash.
+pub async fn redirects(req: Request, next: Next) -> Response {
+    let path = req.uri().path();
+    let trimmed = if path.len() > 1 { path.trim_end_matches('/') } else { path };
+    let moved = crate::site::REDIRECTS.iter().find(|(from, _)| *from == trimmed).map(|(_, to)| *to);
+    // Only same-site targets: "//host" would be a protocol-relative redirect to another site.
+    // Browsers also read "/\host" as "//host".
+    let slash = (trimmed != path && trimmed.starts_with('/') && !trimmed[1..].starts_with(['/', '\\']))
+        .then_some(trimmed);
+    let Some(target) = moved.or(slash) else {
+        return next.run(req).await;
+    };
+    let location = match req.uri().query() {
+        Some(query) => format!("{target}?{query}"),
+        None => target.to_owned(),
+    };
+    (StatusCode::MOVED_PERMANENTLY, [(LOCATION, location)]).into_response()
+}
+
 /// Fallback for every path that is neither a page nor a file: the cached 404 page.
 pub async fn serve_not_found(State(cache): State<Arc<PageCache>>, req: Request) -> Response {
     match &cache.not_found {
@@ -214,7 +233,7 @@ fn accepts(header: &str, coding: &str) -> bool {
 pub struct CachePolicy {
     /// /pkg: JS, WASM, CSS. Immutable only when file names carry a content hash.
     pkg: HeaderValue,
-    /// /img: immutable in production. Rule: a changed image gets a new file name.
+    /// /img and /fonts: immutable in production. Rule: a changed file gets a new file name.
     img: HeaderValue,
     /// Other files under the site root (favicon, robots.txt).
     other: HeaderValue,
@@ -249,7 +268,7 @@ pub async fn cache_control(State(policy): State<CachePolicy>, req: Request, next
         NO_CACHE
     } else if path.starts_with("/pkg/") {
         policy.pkg
-    } else if path.starts_with("/img/") {
+    } else if path.starts_with("/img/") || path.starts_with("/fonts/") {
         policy.img
     } else {
         policy.other
@@ -323,6 +342,28 @@ mod tests {
         assert_eq!(missing.status(), StatusCode::NOT_FOUND);
         assert!(!missing.headers().contains_key(ETAG));
         assert_eq!(body(missing).await, page.identity);
+    }
+
+    async fn redirect_of(uri: &str) -> Option<String> {
+        use axum::{middleware::from_fn, routing::get};
+        let app = Router::new().fallback(get(|| async { "ok" })).layer(from_fn(redirects));
+        let response = app.oneshot(Request::get(uri).body(Body::empty()).unwrap()).await.unwrap();
+        (response.status() == StatusCode::MOVED_PERMANENTLY)
+            .then(|| response.headers()[LOCATION].to_str().unwrap().to_owned())
+    }
+
+    #[tokio::test]
+    async fn redirects_old_urls_and_trailing_slashes() {
+        assert_eq!(redirect_of("/notlikeus/").await.as_deref(), Some("/rolunk"));
+        assert_eq!(redirect_of("/asztrofotoink").await.as_deref(), Some("/projektek/asztrofotok"));
+        assert_eq!(redirect_of("/rolunk/?a=1").await.as_deref(), Some("/rolunk?a=1"));
+        assert_eq!(redirect_of("/").await, None);
+        assert_eq!(redirect_of("/rolunk").await, None);
+        // never redirect off-site
+        assert_eq!(redirect_of("//evil.example/").await, None);
+        assert_eq!(redirect_of("///evil.example/").await, None);
+        assert_eq!(redirect_of("/\\evil.example/").await, None);
+        assert_eq!(redirect_of("/\\/evil.example/").await, None);
     }
 
     #[test]

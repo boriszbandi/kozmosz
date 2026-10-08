@@ -6,3 +6,6 @@
 # local env
 .env
 .env.*
+
+# Python bytecode (tools/)
+__pycache__/

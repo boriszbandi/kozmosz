@@ -1,12 +1,14 @@
 # Tartalom a régi oldalról
 
+**Az `oldalak/*.md` fájlok mostantól az új oldal szerkeszthető forrásai.** Formátum: frontmatter (`cim`, `utvonal`, `regi_url`, `leiras`, a projekt-aloldalakon `kivonat` is, mind idézőjeles JSON-szöveg), utána Markdown törzs `## ` szakaszcímekkel. A képekre `kep:<kulcs>` hivatkozik (pl. `![Dr. Kovács Kálmán előadás közben](kep:eloadok/kovacs-kalman)`), a fájlokat a `tools/images.py` generálja a `public/img` mappába. Az érintetlen, szó szerinti eredeti a git-történetben van (`f389e97` commit), és a `D:\Claude\kozmosz-wp-export\raw` mappában.
+
 A https://kozmosz.bme.hu WordPress oldal szövegei, **szó szerint** (2026-10-08-i állapot). Forrás: a nyilvános REST API (`/wp-json/wp/v2/pages`) és az oldalak kész HTML-je. Belépés nélkül szedtem le, így csak a publikált tartalom került ide, a piszkozatok nem.
 
-A szövegeken nem javítottam: az elírásokat lent listázom, és ott kell eldönteni, mit javítsunk. A képek URL-jei még a régi oldalra mutatnak. A letöltött eredetiket (78 fájl: használt képek, a médiatár többi fájlja és a nyilvános Drive-képek) a [media.md](media.md) sorolja fel.
+A szövegen csak a lent felsorolt elírásokat javítottuk, a WordPress-maradványokat (beágyazások, Drive-galériák, régi kép-URL-ek) pedig kivettük. A letöltött eredetiket (78 fájl: használt képek, a médiatár többi fájlja és a nyilvános Drive-képek) a [media.md](media.md) sorolja fel.
 
 ## Oldaltérkép
 
-| Régi URL | Menüben | Fájl | Javasolt új útvonal |
+| Régi URL | Menüben | Fájl | Új útvonal |
 |---|---|---|---|
 | `/` | (logó) | [kezdolap.md](oldalak/kezdolap.md) | `/` |
 | `/notlikeus/` | Rólunk | [rolunk.md](oldalak/rolunk.md) | `/rolunk` |
@@ -65,16 +67,21 @@ Megjegyzések:
 
 ## Talált hibák a régi oldalon
 
-**Elírásgyanús helyek** (a fájlokban szó szerint benne maradtak):
+**Javított elírások** (az `oldalak/*.md` site-tartalomban már javítva, az eredeti a `f389e97` commitban):
 - Dr. Szabó József: „valamit az első magyar űrhajós” → *valamint*
 - Dr. Bacsárdi László: „Magyar Asztonautikai Társaság” → *Asztronautikai*
 - Dr. Kovács Kálmán: „Iráyítástechnikai” → *Irányítástechnikai*; „Villamosmérnöki és Informatika Karának” → *Informatikai Karának*
 - Somodi Máté: „A BME-n végzet” → *végzett*
-- Detre Örs Hunor: „szervezéséve.” → *szervezésével.* (a mondat csonka)
-- Kisebbek: „Szovjet-Magyar” → *szovjet–magyar* (Dr. Szabó József), „RNS világ” → *RNS-világ* (Medvegy Anna), „Kárpát medencét” → *Kárpát-medencét* (Időjárás műhold). Szabó Nimród biójának első mondata hiányos. A „Nyugat-Magyarországi Egyetem” név elavult lehet.
-- Az „Asztrófotóink” (menü és oldalcím) és az „Asztrofotóink” (címsor és URL) eltér egymástól.
-- Az Asztrofotóink bevezetője harmadik személyben kezd („A Kozmoszosok … foglalkoznak”), aztán többes szám első személyre vált („kémleljük”).
-- Rólunk: „Ha érdekel a világűr és szeretnél…” → vessző hiányozhat az „és” előtt.
+- Detre Örs Hunor: „szervezéséve.” → *szervezésével.*
+- Kisebbek: „Szovjet-Magyar” → *szovjet–magyar* (Dr. Szabó József), „RNS világ” → *RNS-világ* (Medvegy Anna), „Kárpát medencét” → *Kárpát-medencét* (Időjárás műhold).
+- Az „Asztrófotóink” (menü és oldalcím) és az „Asztrofotóink” (címsor és URL) eltért egymástól: egységesen *Asztrofotóink*.
+- Rólunk: „Ha érdekel a világűr és szeretnél…” → *Ha érdekel a világűr, és szeretnél…*
+- Az angol idézőjelek magyarra cserélve: “Puli” → *„Puli”*, “vízszimatoló” → *„vízszimatoló”* (Dr. Pacher Tibor).
+
+**Ellenőrizendő, nem javítottuk** (szó szerint maradt):
+- Szabó Nimród biójának első mondata hiányos („Szabó Nimród Zombor, az ELTE TTK-n végzett…”).
+- A „Nyugat-Magyarországi Egyetem” név elavult lehet (Dr. Bacsárdi László).
+- Az Asztrofotóink bevezetője harmadik személyben kezd („A Kozmoszosok … foglalkoznak”), aztán többes szám első személyre vált („kémleljük”). Ugyanígy az Időjárás műhold oldalon („foglalkoznak”, majd „figyeljük”).
 
 **Technikai hibák:**
 - `lang="en-US"` és `og:locale=en_US` magyar tartalom mellett. Üres oldalnév, ezért a címek „ -”-re végződnek.
@@ -88,6 +95,6 @@ Megjegyzések:
 
 1. **Drive képek:** a 14 nyilvános Drive-képet letöltöttem. A maradék 43-at (28 asztrofotó, 15 NOAA-kép) a `bme.kozmosz` fiókból kell exportálni (lásd [media.md](media.md)).
 2. **Logó:** a médiatár SVG logója üres. Vektoros „Egyetemi Kozmosz Szakkollégium” logó csak akkor lesz, ha valakinél megvan az eredeti fájl, vagy ha vektorizáljuk a PNG-t.
-3. **Elírások:** javítsuk őket az új oldalon?
-4. **Arculat:** a régi WordPress sárga/barna, a React verzió lila.
-5. **URL-ek:** jók a javasolt magyar útvonalak? Hová kerül élesben az oldal?
+3. **Elírások:** eldőlt, javítva (lásd fent a „Javított elírások” listát).
+4. **Arculat:** eldőlt, a régi oldal sárga kiemelőszíne marad.
+5. **URL-ek:** a javasolt magyar útvonalak jók. Nyitott még: hová kerül élesben az oldal?

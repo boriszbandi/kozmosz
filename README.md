@@ -7,8 +7,8 @@ Cél: a lehető leggyorsabb betöltés.
 - A statikus oldalak és a 404-es oldal induláskor egyszer renderelődnek, és memóriából mennek ki brotli-11 / gzip-9 tömörítéssel, ETag-gel (304).
 - A CSS production módban a HTML-be ágyazva megy ki, így nincs külön render-blokkoló kérés.
 - A JS/WASM/CSS fájlnevekben hash van, az `/img` fájlok immutable cache-t kapnak. Előtömörített `.br`/`.gz` fájlok.
-- Háttérkép AVIF/WebP/JPEG `image-set()`-tel, három méretben (50–150 KB az eredeti 3.4 MB helyett).
-- System font stack, nincs webfont és nincs külső kérés.
+- Képek AVIF + JPEG változatban, több szélességben, metaadat (GPS) nélkül; az első képernyőn lévő kép prioritással, a többi lustán töltődik.
+- Címsorok: Urbanist (17 KB, magyar karakterekre szűkítve), szöveg: rendszerbetű. Nincs külső kérés.
 - Oldalváltáskor `@view-transition` áttűnés és speculation rules prefetch, JS nélkül.
 
 ## Követelmények
@@ -67,16 +67,21 @@ LEPTOS_HASH_FILES=true
 
 | Fájl | Mi van benne |
 |------|--------------|
-| `src/app.rs` | HTML shell, routing, navigáció, `STATIC_PAGES` / `ISLAND_PAGES` listák |
-| `src/pages.rs` | oldalak (kezdőlap, közösség, rólunk, 404) |
-| `src/server.rs` | memóriás oldal-cache, cache-fejlécek, beágyazott CSS, leállítás |
+| `content/oldalak/*.md` | az oldalak szövegei (ezeket kell szerkeszteni), képek `kep:<kulcs>` formában |
+| `src/content.rs` | a Markdown-tartalom betöltése (frontmatter, `##` szekciók, galériák) |
+| `src/pages/` | az oldalak elrendezése (kezdőlap, rólunk, elérhetőség, programok, előadók, projektek, 404) |
+| `src/layout.rs` | fejléc, menü (mobilon JS nélküli `<details>`), lábléc, meta tagek |
+| `src/site.rs` | név, cím, e-mail, közösségi linkek, menü, régi URL-ek átirányítása |
+| `src/media.rs` | reszponzív `<picture>` (AVIF + JPEG), galéria, ikonok |
+| `src/server.rs` | memóriás oldal-cache, átirányítások, cache-fejlécek, beágyazott CSS |
 | `src/main.rs` | axum szerver összerakása |
 | `style/main.css` | az összes stílus (sima CSS) |
-| `public/` | favicon, képek (a site gyökerébe másolódik) |
+| `tools/images.py` | képgenerálás: forrásfotókból `public/img/*` és `src/images.rs` |
+| `public/` | favicon, fontok, generált képek (a site gyökerébe másolódik) |
 
-Új oldal: komponens a `src/pages.rs`-be, `<Route>` az `App`-ba. Ha a HTML-je minden kérésre ugyanaz, az útvonal kerüljön a `STATIC_PAGES` listába is.
+Új oldal: Markdown a `content/oldalak/`-ba, komponens a `src/pages/`-be, `<Route>` az `App`-ba, menüpont a `src/site.rs`-be. Ha a HTML-je minden kérésre ugyanaz, az útvonal kerüljön a `STATIC_PAGES` listába is.
 
-Kép cseréjekor **új fájlnév** kell, mert az `/img` alatti fájlokat a böngésző egy évig cache-eli.
+Új kép: a forrásfájlt vedd fel a `tools/images.py` CONFIG listájába, futtasd (`python tools/images.py`), majd hivatkozz rá `kep:<kulcs>` formában. Kép cseréjekor **új kulcs (fájlnév)** kell, mert az `/img` alatti fájlokat a böngésző egy évig cache-eli.
 
 ## Teszt
 
