@@ -87,7 +87,7 @@ Megjegyzések:
 ## Nyitott kérdések
 
 1. **Drive képek:** a 14 nyilvános Drive-képet letöltöttem. A maradék 43-at (28 asztrofotó, 15 NOAA-kép) a `bme.kozmosz` fiókból kell exportálni (lásd [media.md](media.md)).
-2. **Logó:** a médiatár SVG logója üres. Vektoros „Egyetemi Kozmosz Szakkollégium” logó csak akkor lesz, ha valaki megvan az eredeti, vagy ha vektorizáljuk a PNG-t.
+2. **Logó:** a médiatár SVG logója üres. Vektoros „Egyetemi Kozmosz Szakkollégium” logó csak akkor lesz, ha valakinél megvan az eredeti fájl, vagy ha vektorizáljuk a PNG-t.
 3. **Elírások:** javítsuk őket az új oldalon?
 4. **Arculat:** a régi WordPress sárga/barna, a React verzió lila.
 5. **URL-ek:** jók a javasolt magyar útvonalak? Hová kerül élesben az oldal?
