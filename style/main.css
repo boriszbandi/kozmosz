@@ -1,5 +1,7 @@
-/* Kozmosz: dark night-sky theme with the yellow accent of the old kozmosz.bme.hu brand.
-   One theme (dark), one accent, square corners everywhere. */
+/* Kozmosz: "Földi állomás" (ground station). The club as a station listening to the sky:
+   cool near-black, hairlines that frame real content, monospace only for real data (dates,
+   times, frequencies), yellow #ffde73 as the signal colour. One theme, one accent, square
+   corners, no JavaScript. */
 
 @font-face {
   font-family: "Urbanist";
@@ -20,28 +22,62 @@
   line-gap-override: 0%;
 }
 
+/* Arial Regular scaled to Urbanist Medium (500), for the statement paragraphs. */
+@font-face {
+  font-family: "Urbanist Fallback";
+  src: local("Arial"), local("ArialMT"), local("Helvetica");
+  font-weight: 400 500;
+  size-adjust: 98.45%;
+  ascent-override: 96.5%;
+  descent-override: 25.39%;
+  line-gap-override: 0%;
+}
+
 :root {
   color-scheme: dark;
 
-  --bg: #252422;
-  --bg-deep: #1f1d1b;
-  --surface: #31302d;
-  --line: #3c3c38;
-  --line-strong: #5a5852;
-  --heading: #faf7ef;
-  --text: #dedad1;
-  --muted: #aeaaa1;
-  --accent: #ffde73;
-  --accent-hover: #ffe89a;
-  --on-accent: #1f1d1b;
+  --bg: #0a0c0f;
+  --bg-2: #0f1317;
+  --bg-3: #141a20;
+  --line: #1d242b;
+  --line-2: #2c353f;
+  --heading: #eef1f4;
+  --text: #c5ccd3;
+  --muted: #8f99a3;
+  --signal: #ffde73;
+  --signal-hover: #ffe89a;
+  --signal-ink: #0a0c0f;
+  --signal-wash: rgb(255 222 115 / 0.07);
 
   --font-heading: "Urbanist", "Urbanist Fallback", system-ui, sans-serif;
   --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "Liberation Mono", monospace;
 
-  --container: 1180px;
+  --container: 1200px;
   --gutter: clamp(16px, 4vw, 40px);
-  --header-h: 68px;
-  --space-section: clamp(3.5rem, 7vw, 6.5rem);
+  --gap: 24px;
+  --nav-h: 64px;
+  --space: clamp(4.5rem, 8vw, 7.5rem);
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Type scale: eight steps. */
+  --fs-xs: 0.8125rem;
+  --fs-sm: 0.9375rem;
+  --fs-base: 1.0625rem;
+  --fs-lead: clamp(1.1875rem, 1.05rem + 0.5vw, 1.375rem);
+  --fs-h3: clamp(1.375rem, 1.2rem + 0.6vw, 1.625rem);
+  --fs-h2: clamp(2rem, 1.3rem + 2vw, 3.25rem);
+  --fs-h1: clamp(2.75rem, 1.6rem + 3.4vw, 4.5rem);
+  --fs-display: clamp(3.25rem, 1.4rem + 5.6vw, 6.75rem);
+
+  /* Spacing scale. */
+  --s1: 8px;
+  --s2: 16px;
+  --s3: 24px;
+  --s4: 40px;
+  --s5: 64px;
+  /* Corner radius of controls (glass): soft rectangles. Content frames stay square. */
+  --radius: 12px;
 }
 
 *,
@@ -50,10 +86,22 @@
   box-sizing: border-box;
 }
 
+::selection {
+  background: var(--signal);
+  color: var(--signal-ink);
+}
+
+a,
+summary,
+.button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 html {
   background: var(--bg);
   -webkit-text-size-adjust: 100%;
-  scroll-padding-top: calc(var(--header-h) + 1rem);
+  scroll-padding-top: calc(var(--nav-h) + 1rem);
 }
 
 body {
@@ -62,11 +110,11 @@ body {
   min-height: 100svh;
   display: flex;
   flex-direction: column;
+  /* The Moon and full-bleed photos may reach past the viewport edge; never scroll sideways. */
+  overflow-x: clip;
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-body);
-  font-size: 1.0625rem;
-  line-height: 1.65;
+  font: 400 1.0625rem/1.65 var(--font-body);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -86,13 +134,13 @@ picture {
 
 /* Placeholder tile while a lazy image loads. */
 picture img {
-  background: var(--surface);
+  background: var(--bg-2);
 }
 
 h1,
 h2,
 h3 {
-  margin: 0 0 0.5em;
+  margin: 0;
   color: var(--heading);
   font-family: var(--font-heading);
   font-weight: 700;
@@ -101,39 +149,46 @@ h3 {
   text-wrap: balance;
 }
 
-h1 {
-  font-size: clamp(2.4rem, 1.5rem + 3.8vw, 4.5rem);
-}
-
-h2 {
-  font-size: clamp(1.75rem, 1.25rem + 1.9vw, 2.75rem);
-}
-
-h3 {
-  font-size: 1.375rem;
-}
-
 p {
-  margin: 0 0 1em;
-  text-wrap: pretty;
+  margin: 0;
 }
 
 a {
-  color: var(--accent);
-  text-underline-offset: 0.2em;
+  color: var(--heading);
+  text-decoration-color: var(--line-2);
+  text-underline-offset: 4px;
 }
 
 a:hover {
-  color: var(--accent-hover);
+  text-decoration-color: var(--signal);
+}
+
+.prose a,
+.signal-empty a,
+.events-empty a,
+.ev-note a {
+  text-decoration-color: var(--muted);
+  text-decoration-thickness: 1px;
+}
+
+.prose a:hover,
+.signal-empty a:hover,
+.events-empty a:hover,
+.ev-note a:hover {
+  text-decoration-color: var(--signal);
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--signal);
   outline-offset: 3px;
 }
 
 address {
   font-style: normal;
+}
+
+figure {
+  margin: 0;
 }
 
 .container {
@@ -143,11 +198,16 @@ address {
   padding-inline: var(--gutter);
 }
 
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
 .icon {
   display: inline-flex;
   flex: none;
-  width: 1.15em;
-  height: 1.15em;
+  width: 1.1em;
+  height: 1.1em;
 }
 
 .icon svg {
@@ -161,8 +221,8 @@ address {
   left: 0;
   z-index: 30;
   padding: 0.75rem 1rem;
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--signal);
+  color: var(--signal-ink);
   font-weight: 600;
   transform: translateY(-100%);
 }
@@ -172,17 +232,79 @@ address {
 }
 
 .skip-link:hover {
-  color: var(--on-accent);
+  color: var(--signal-ink);
 }
 
-/* Cross-document fade between pages, zero JavaScript (Chromium, Safari; ignored elsewhere). */
+/* Text for screen readers only. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Arrow icons pointing back: the right arrow mirrored (scale, so the hover nudge still composes). */
+.photo-back .icon,
+.photo-step:not(.photo-step-next) .icon {
+  scale: -1 1;
+}
+
+/* Page changes, zero JavaScript (cross-document view transitions: Chromium, Safari 18.2+;
+   elsewhere pages simply load). The header stays put, the old page dips out, the new one rises
+   into place, and named elements (the menu's glass pill, photos) travel between the two. */
 @view-transition {
   navigation: auto;
 }
 
-::view-transition-old(root),
+::view-transition-group(*) {
+  animation-duration: 0.45s;
+  animation-timing-function: var(--ease);
+}
+
+::view-transition-old(root) {
+  animation: vt-out 0.14s ease-in both;
+}
+
 ::view-transition-new(root) {
-  animation-duration: 180ms;
+  animation: vt-in 0.32s var(--ease) 0.06s both;
+}
+
+/* The menu pill: a little overshoot, like liquid settling. */
+::view-transition-group(nav-ink) {
+  animation-timing-function: cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+@keyframes vt-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes vt-in {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+}
+
+/* ---------- Prose (the club's own texts) ---------- */
+
+.prose {
+  max-width: 65ch;
+}
+
+.prose p + p,
+.prose + .prose {
+  margin-top: 1em;
+}
+
+.prose a {
+  color: var(--heading);
 }
 
 /* ---------- Buttons and links ---------- */
@@ -190,162 +312,319 @@ address {
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 2rem;
+  gap: 12px;
+  margin-top: 36px;
 }
 
+/* Buttons: "Liquid Glass", the owner's request (2026-10-08), as soft rectangles (not pills). An approximation of Apple's
+   iOS 26 material: there is no official web version. Layers: a tint, a top sheen, a blurred and
+   saturated backdrop, a specular rim (::before, brighter top-left, as if lit from above) and a
+   light sweep on hover (::after). Content frames stay square; only controls are rounded. */
 .button {
+  --tint: rgb(255 255 255 / 0.06);
+  --rim: rgb(255 255 255 / 0.16);
+  --glow: rgb(0 0 0 / 0);
+  position: relative;
+  isolation: isolate;
   display: inline-flex;
   align-items: center;
-  gap: 0.55em;
-  padding: 0.8em 1.3em;
-  border: 1px solid transparent;
-  font-family: var(--font-heading);
-  font-size: 1rem;
-  font-weight: 700;
+  justify-content: center;
+  gap: 10px;
+  min-height: 50px;
+  padding: 0 24px;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0) 60%),
+    var(--tint);
+  -webkit-backdrop-filter: blur(14px) saturate(170%);
+  backdrop-filter: blur(14px) saturate(170%);
+  box-shadow:
+    inset 0 1px 0.5px rgb(255 255 255 / 0.4),
+    inset 0 -1px 1px rgb(255 255 255 / 0.08),
+    inset 0 0 0 1px var(--rim),
+    0 12px 32px -14px var(--glow),
+    0 2px 6px -2px rgb(0 0 0 / 0.55);
+  color: var(--heading);
+  font: 700 1.0313rem/1.2 var(--font-heading);
   letter-spacing: 0.01em;
-  line-height: 1.2;
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  transition: box-shadow 0.2s ease, color 0.2s ease;
 }
 
-.button:active {
-  transform: translateY(1px);
+.button::before,
+.button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
 }
 
-.button-primary {
-  background: var(--accent);
-  color: var(--on-accent);
+/* The rim: a 1px ring whose light falls off from the top-left and bottom-right edges. */
+.button::before {
+  padding: 1px;
+  background: linear-gradient(135deg, rgb(255 255 255 / 0.75), rgb(255 255 255 / 0) 32% 68%, rgb(255 255 255 / 0.35));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
 }
 
-.button-primary:hover {
-  background: var(--accent-hover);
-  color: var(--on-accent);
+/* The sweep: a soft diagonal highlight parked off the left edge, crossing on hover. */
+.button::after {
+  background: linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 0.28) 48%, transparent 66%);
+  transform: translateX(-120%);
 }
 
-.button-secondary {
-  border-color: var(--line-strong);
+.button:hover {
+  --rim: rgb(255 255 255 / 0.28);
   color: var(--heading);
 }
 
-.button-secondary:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+/* Tinted glass: the signal yellow deepening into amber, with a warm glow under it. */
+.button-signal {
+  --tint: rgb(255 214 102 / 0.9);
+  --rim: rgb(255 248 222 / 0.5);
+  --glow: rgb(255 184 56 / 0.6);
+  background:
+    radial-gradient(130% 170% at 18% -30%, rgb(255 252 238 / 0.9), rgb(255 252 238 / 0) 52%),
+    linear-gradient(180deg, rgb(255 226 128 / 0.96), rgb(255 186 72 / 0.94));
+  color: #1d1504;
+}
+
+.button-signal:hover {
+  --rim: rgb(255 252 238 / 0.75);
+  --glow: rgb(255 184 56 / 0.85);
+  color: #1d1504;
+}
+
+/* Clear glass. */
+.button-line {
+  --tint: rgb(255 255 255 / 0.05);
+}
+
+/* Without transparency (OS setting) or backdrop-filter: solid fills. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .button-line {
+    --tint: var(--bg-3);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .button {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .button-line {
+    --tint: var(--bg-3);
+  }
 }
 
 .link-arrow {
   display: inline-flex;
   align-items: center;
-  gap: 0.4em;
-  color: var(--accent);
-  font-family: var(--font-heading);
-  font-weight: 700;
+  gap: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line-2);
+  color: var(--heading);
+  font: 700 1rem/1.2 var(--font-heading);
   text-decoration: none;
 }
 
 .link-arrow:hover {
-  text-decoration: underline;
+  border-bottom-color: var(--signal);
+}
+
+.link-arrow .icon {
+  color: var(--signal);
 }
 
 /* ---------- Header and navigation ---------- */
 
+/* The header is transparent: only its controls (brand, menu) are glass chips, and the page
+   scrolls under them, which is where the glass shows. pointer-events pass through the empty
+   parts. The header itself carries no view-transition-name: that would make it a backdrop root,
+   and the chips' backdrop-filter would then blur nothing. The chips are named instead. */
 .site-header {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: var(--bg-deep);
-  border-bottom: 1px solid var(--line);
-  view-transition-name: site-header;
+  height: var(--nav-h);
+  pointer-events: none;
+}
+
+.header-inner > * {
+  pointer-events: auto;
 }
 
 .header-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1.5rem;
-  height: var(--header-h);
+  height: 100%;
 }
 
 .brand {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 10px;
+  height: 48px;
+  padding: 0 16px 0 8px;
+  border-radius: 16px;
   color: var(--heading);
-  font-family: var(--font-heading);
-  font-size: 1.3rem;
-  font-weight: 700;
+  font: 800 1.3125rem/1 var(--font-heading);
+  letter-spacing: -0.01em;
   text-decoration: none;
+  view-transition-name: site-brand;
 }
 
-.brand:hover {
-  color: var(--heading);
+.brand img {
+  width: 32px;
+  height: 32px;
 }
 
-.nav-list {
-  display: flex;
-  gap: 0.25rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+/* Liquid Glass chips in the header (same material as .button, darker tint so text stays
+   readable over any photo scrolling underneath). */
+.brand,
+.nav-desktop .nav-list,
+.nav-mobile summary {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0.02) 60%), rgb(12 15 19 / 0.6);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  backdrop-filter: blur(16px) saturate(180%);
+  box-shadow:
+    inset 0 1px 0.5px rgb(255 255 255 / 0.28),
+    inset 0 -1px 1px rgb(255 255 255 / 0.06),
+    inset 0 0 0 1px rgb(255 255 255 / 0.1),
+    0 10px 28px -14px rgb(0 0 0 / 0.75);
 }
 
-.nav-list a {
-  display: flex;
-  align-items: center;
-  gap: 0.3em;
-  padding: 0.55rem 0.8rem;
-  color: var(--heading);
-  font-weight: 500;
-  text-decoration: none;
+@media (prefers-reduced-transparency: reduce) {
+  .brand,
+  .nav-desktop .nav-list,
+  .nav-mobile summary {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background-color: var(--bg-2);
+  }
 }
 
-.nav-list a:hover {
-  color: var(--accent);
+@supports not (backdrop-filter: blur(1px)) {
+  .brand,
+  .nav-desktop .nav-list,
+  .nav-mobile summary {
+    background-color: var(--bg-2);
+  }
 }
 
-/* Current page: color plus underline, so it is not signalled by color alone. */
-.nav-list a[aria-current="page"] {
-  color: var(--accent);
-  text-decoration: underline 2px;
-  text-underline-offset: 6px;
-}
-
-/* Parent of the current subpage: accent colour only, without the "current" semantics. */
-.nav-list .has-sub:has(.nav-sub a[aria-current="page"]) > a {
-  color: var(--accent);
-}
-
-.nav-item {
-  position: relative;
-}
-
-.nav-item .icon {
-  width: 0.85em;
-  height: 0.85em;
-}
-
+.nav-list,
 .nav-sub {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/* Desktop menu: one glass bar floating in the header; its items are concentric soft
+   rectangles (outer radius = inner radius + padding). */
+.nav-desktop .nav-list {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 16px;
+  view-transition-name: site-nav;
+}
+
+.nav-desktop .nav-item > a {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: var(--radius);
+  color: #dfe4e9;
+  font: 600 0.9688rem/1 var(--font-body);
+  text-decoration: none;
+}
+
+.nav-desktop .nav-item > a:hover {
+  color: var(--heading);
+  background: rgb(255 255 255 / 0.06);
+}
+
+/* Current page (and the parent of the current subpage): a yellow-tinted glass pill, not colour
+   alone. Its view-transition-name makes it glide from the old item to the new one. */
+.nav-ink {
+  display: none;
+}
+
+.nav-desktop .nav-ink {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  display: block;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgb(255 238 178 / 0.24), rgb(255 222 115 / 0.1));
+  box-shadow:
+    inset 0 1px 0.5px rgb(255 255 255 / 0.4),
+    inset 0 0 0 1px rgb(255 222 115 / 0.4),
+    0 6px 18px -8px rgb(255 196 64 / 0.45);
+  opacity: 0;
+}
+
+.nav-desktop .nav-item > a[aria-current="page"],
+.nav-desktop .has-sub:has(.nav-sub a[aria-current="page"]) > a {
+  color: var(--heading);
+  background: none;
+}
+
+.nav-desktop a[aria-current="page"] > .nav-ink,
+.nav-desktop .has-sub:has(.nav-sub a[aria-current="page"]) > a > .nav-ink {
+  opacity: 1;
+  view-transition-name: nav-ink;
+}
+
+.nav-item {
+  position: relative;
+}
+
+.nav-desktop .nav-item .icon {
+  width: 0.85em;
+  height: 0.85em;
+  color: var(--muted);
+}
+
+/* Submenu: a glass-look sheet. It sits inside the blurred menu bar (a backdrop root), so a
+   backdrop-filter here could not reach the page: it is nearly opaque instead. */
 .nav-desktop .nav-sub {
   position: absolute;
-  top: 100%;
-  left: 0;
-  min-width: 14rem;
-  padding: 0.4rem 0;
-  background: var(--surface);
-  border: 1px solid var(--line);
+  top: calc(100% + 10px);
+  min-width: 15rem;
+  padding: 6px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.07), rgb(255 255 255 / 0.02)), rgb(16 20 25 / 0.96);
+  box-shadow:
+    inset 0 1px 0.5px rgb(255 255 255 / 0.2),
+    inset 0 0 0 1px rgb(255 255 255 / 0.08),
+    0 18px 40px -16px rgb(0 0 0 / 0.8);
   display: none;
+}
+
+/* Bridges the gap to the submenu, so it does not close on the way down. */
+.nav-desktop .nav-sub::before {
+  content: "";
+  position: absolute;
+  inset: -12px 0 auto;
+  height: 12px;
 }
 
 /* The last nav item sits at the right edge: open its submenu leftwards. */
 .nav-desktop .nav-item:last-child > .nav-sub {
-  left: auto;
   right: 0;
 }
 
@@ -355,20 +634,40 @@ address {
 }
 
 .nav-desktop .nav-sub a {
-  padding: 0.5rem 1rem;
+  display: block;
+  padding: 10px 14px;
+  border-radius: 10px;
+  color: var(--text);
+  text-decoration: none;
 }
 
+.nav-desktop .nav-sub a:hover {
+  color: var(--heading);
+  background: rgb(255 255 255 / 0.07);
+}
+
+.nav-desktop .nav-sub a[aria-current="page"] {
+  color: var(--heading);
+  background: rgb(255 222 115 / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(255 222 115 / 0.35);
+}
+
+/* Zero-JS mobile menu: <details> opens a full-screen sheet under the header. */
 .nav-mobile {
   display: none;
 }
 
+/* The menu button is a glass chip too. */
 .nav-mobile summary {
-  display: grid;
-  place-items: center;
-  width: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   height: 44px;
+  padding: 0 16px;
+  border-radius: var(--radius);
   color: var(--heading);
-  font-size: 1.5rem;
+  view-transition-name: site-menu;
+  font: 600 0.9375rem/1 var(--font-body);
   list-style: none;
   cursor: pointer;
 }
@@ -386,232 +685,504 @@ address {
   display: inline-flex;
 }
 
-/* Full-screen sheet under the header. */
-.nav-mobile-panel {
-  position: absolute;
-  top: var(--header-h);
-  left: 0;
-  right: 0;
-  height: calc(100svh - var(--header-h));
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 0.75rem var(--gutter) 1.5rem;
-  background: var(--bg-deep);
+.nav-mobile details[open] summary {
+  box-shadow:
+    inset 0 1px 0.5px rgb(255 255 255 / 0.3),
+    inset 0 0 0 1px rgb(255 222 115 / 0.55),
+    0 10px 28px -14px rgb(0 0 0 / 0.75);
 }
 
-.nav-mobile .nav-list {
-  flex-direction: column;
+.nav-mobile-panel {
+  position: absolute;
+  top: var(--nav-h);
+  left: 0;
+  right: 0;
+  height: calc(100svh - var(--nav-h));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px var(--gutter) 32px;
+  background: var(--bg);
 }
 
 .nav-mobile .nav-list a {
-  padding: 0.8rem 0;
-  font-size: 1.125rem;
+  display: block;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--heading);
+  font: 700 1.375rem/1.2 var(--font-heading);
+  text-decoration: none;
+}
+
+.nav-mobile .nav-list a[aria-current="page"] {
+  color: var(--signal);
+  text-decoration: underline 2px var(--signal);
+  text-underline-offset: 0.3em;
 }
 
 .nav-mobile .nav-item .icon {
   display: none;
 }
 
-.nav-mobile .nav-sub {
-  padding-left: 1rem;
-  border-left: 1px solid var(--line);
+.nav-mobile .nav-sub a {
+  padding-left: 20px;
+  color: var(--text);
+  font: 600 1.0625rem/1.3 var(--font-body);
 }
 
-@media (width <= 900px) {
-  .nav-desktop {
-    display: none;
-  }
+/* ---------- Home: hero with the next-event panel ---------- */
 
-  .nav-mobile {
-    display: block;
-  }
-
-  /* While the sheet is open, hide the page behind it: Tab must not land under the panel. */
-  body:has(.nav-mobile details[open]) :is(main, .site-footer) {
-    visibility: hidden;
-  }
-}
-
-/* ---------- Page structure ---------- */
-
-.section {
-  padding-block: var(--space-section);
-}
-
-.section-tight {
-  padding-bottom: var(--space-section);
-}
-
-.page-header {
-  padding-block: clamp(2.5rem, 6vw, 4.5rem) clamp(1.5rem, 3vw, 2.5rem);
-}
-
-.page-header h1 {
-  margin-bottom: 0.25em;
-}
-
-.page-lead {
-  max-width: 40rem;
-  color: var(--muted);
-  font-size: 1.2rem;
-}
-
-.breadcrumb {
-  margin-bottom: 1rem;
-  font-size: 0.95rem;
-}
-
-.breadcrumb a {
-  color: var(--muted);
-}
-
-.breadcrumb a:hover {
-  color: var(--accent);
-}
-
-.prose {
-  max-width: 65ch;
-}
-
-.prose > :last-child {
-  margin-bottom: 0;
-}
-
-.prose + .prose {
-  margin-top: 1em;
-}
-
-.lead {
-  color: var(--heading);
-  font-size: clamp(1.2rem, 1.05rem + 0.7vw, 1.5rem);
-  line-height: 1.5;
-}
-
-.section-head {
-  margin-bottom: 2.25rem;
-}
-
-.section-head h2 {
-  margin-bottom: 0.4em;
-}
-
-.section-head-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.figure {
-  margin: 2rem 0;
-}
-
-/* ---------- Home ---------- */
-
+/* Photo heroes start under the (transparent) header. */
 .hero {
-  padding-block: clamp(2rem, 5vw, 5rem);
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  min-height: clamp(724px, 100svh, 924px);
+  margin-top: calc(-1 * var(--nav-h));
+  padding-top: var(--nav-h);
+  overflow: hidden;
 }
 
-.hero-grid {
-  display: grid;
-  gap: 2.5rem;
+.hero-photo {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
 }
 
-.eyebrow {
-  margin-bottom: 1rem;
-  color: var(--accent);
-  font-family: var(--font-heading);
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+.hero-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 45%;
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, rgb(10 12 15 / 0.5) 0%, rgb(10 12 15 / 0) 26%, rgb(10 12 15 / 0) 58%, rgb(10 12 15 / 0.9) 80%, var(--bg) 100%),
+    linear-gradient(90deg, rgb(10 12 15 / 0.6) 0%, rgb(10 12 15 / 0) 55%);
+}
+
+/* A satellite pass, once per visit to the page: a short streak swinging on a huge radius (pivot
+   far below), so it crosses the sky on a shallow arc, tangent to its path, under the scrim so it
+   dims towards the edges. It lasts under 5 s (WCAG 2.2.2 needs no pause control then).
+   Transform and opacity only; nothing without motion. */
+.pass {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pass {
+    position: absolute;
+    top: calc(var(--nav-h) + 2.5rem);
+    left: 58%;
+    /* Same layer as the photo but later in the DOM: above it, under the scrim. */
+    z-index: -2;
+    display: block;
+    width: 72px;
+    height: 2px;
+    margin-left: -36px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, rgb(238 241 244 / 0), rgb(238 241 244 / 0.85));
+    transform-origin: 50% 110vmax;
+    opacity: 0;
+    animation: pass 4.6s cubic-bezier(0.3, 0.1, 0.7, 0.9) 1.6s both;
+  }
+}
+
+@keyframes pass {
+  0% {
+    rotate: -9deg;
+    opacity: 0;
+  }
+
+  12%,
+  80% {
+    opacity: 1;
+  }
+
+  100% {
+    rotate: 8deg;
+    opacity: 0;
+  }
+}
+
+.hero-inner {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 56px;
+  padding-top: clamp(56px, 9vh, 96px);
+  padding-bottom: 32px;
 }
 
 .hero h1 {
-  margin-bottom: 0.3em;
-  font-size: clamp(3rem, 2rem + 4.5vw, 5.5rem);
+  font-size: clamp(3.25rem, 1.4rem + 5.6vw, 6.75rem);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.035em;
+}
+
+.hero-lead {
+  max-width: 36ch;
+  margin-top: 24px;
+  color: #dde2e7;
+  font-size: clamp(1.125rem, 1rem + 0.45vw, 1.375rem);
+  line-height: 1.5;
+}
+
+/* The two lead paragraphs read as one block (no words changed). */
+.hero-lead {
+  max-width: 38ch;
 }
 
 .hero-lead p {
-  max-width: 34ch;
-  margin: 0;
-  font-size: clamp(1.125rem, 1rem + 0.45vw, 1.35rem);
-  line-height: 1.55;
+  display: inline;
 }
 
-.hero-lead p + p {
-  margin-top: 0.75em;
+.hero-lead p + p::before {
+  content: " ";
 }
 
-.hero-media img {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-  object-position: center 70%;
+/* The next programme: a frameless readout on the photo's horizon (its rule and tick come from
+   the section system below). */
+.signal {
+  --rule: rgb(238 241 244 / 0.18);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 14px clamp(32px, 5vw, 64px);
 }
 
-@media (width > 860px) {
-  .hero-grid {
-    grid-template-columns: 5fr 7fr;
-    align-items: center;
+.signal-label {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font: 600 var(--fs-sm)/1 var(--font-body);
+}
+
+.signal-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-self: end;
+  color: var(--text);
+  font: 600 var(--fs-sm)/1 var(--font-body);
+  text-decoration: none;
+}
+
+.signal-link:hover {
+  color: var(--heading);
+}
+
+.tag-today {
+  display: inline-block;
+  padding: 5px 8px 4px;
+  background: var(--signal);
+  color: var(--signal-ink);
+  font: 800 0.75rem/1 var(--font-heading);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.signal-when {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: start;
+  column-gap: 24px;
+  row-gap: 8px;
+}
+
+.signal-when .big {
+  color: var(--heading);
+  font: 500 var(--fs-h2)/1 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+}
+
+.signal-when .big-time {
+  color: var(--signal);
+}
+
+.signal-when .sub {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+.signal-what h2 {
+  font-size: clamp(1.5rem, 1.2rem + 1vw, 2.125rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.signal-what h2 a {
+  text-decoration: none;
+}
+
+.signal-what h2 a:hover {
+  color: var(--signal);
+}
+
+.where {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.where .icon {
+  margin-top: 0.2em;
+  color: var(--muted);
+}
+
+.signal-what h2,
+.where,
+.ev-title {
+  overflow-wrap: anywhere;
+}
+
+.signal-empty {
+  grid-column: 1 / -1;
+  color: var(--text);
+}
+
+/* Arrow icons are quiet until hovered: yellow marks actions, times and frequencies. */
+.link-arrow .icon,
+.signal-link .icon,
+.photo-back .icon {
+  color: var(--muted);
+}
+
+:is(.link-arrow, .signal-link, .photo-back):hover .icon {
+  color: var(--signal);
+}
+
+/* ---------- Sections ---------- */
+
+.section {
+  padding-top: var(--space);
+}
+
+main > .section:last-child {
+  padding-bottom: var(--space);
+}
+
+/* Below-the-fold sections are laid out only when they come near the viewport: it halved the
+   main-thread style/layout time in Lighthouse's mobile profile. "auto" remembers the real size. */
+main > .section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}
+
+/* One section system: a hairline with a signal tick over every title (and over the panels that
+   open a block). The hairline draws out of the tick as a section title scrolls in; the text
+   itself never moves. */
+:is(.section-title, .group-title, .subscribe, .signal) {
+  position: relative;
+  padding-top: var(--s3);
+}
+
+:is(.section-title, .group-title, .subscribe, .signal)::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: var(--rule, var(--line-2));
+  transform-origin: left;
+}
+
+:is(.section-title, .group-title, .subscribe, .signal)::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40px;
+  height: 2px;
+  background: var(--signal);
+}
+
+.section-title {
+  margin-bottom: var(--s4);
+  font-size: var(--fs-h2);
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  view-timeline: --title block;
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .section-title::before {
+      animation: rule-draw linear both;
+      animation-timeline: --title;
+      animation-range: entry 0% cover 25%;
+    }
   }
 }
 
-.editorial-body {
-  max-width: 62ch;
+@keyframes rule-draw {
+  from {
+    scale: 0 1;
+  }
 }
 
-.editorial-body .lead {
-  margin-bottom: 1.5rem;
+.section-intro {
+  max-width: 64ch;
 }
 
+.section-intro p + p {
+  margin-top: 1em;
+}
+
+/* A paragraph set as a typographic statement. */
+.statement {
+  max-width: 34em;
+  color: var(--heading);
+  font: 500 var(--fs-lead)/1.5 var(--font-heading);
+  letter-spacing: -0.005em;
+}
+
+/* Photos are not boxed: the bg-2 tile only shows while one loads. */
+.frame {
+  background: var(--bg-2);
+}
+
+.frame img {
+  width: 100%;
+}
+
+/* A photo as a full-width band that dissolves into the night on every edge, like the hero. */
 .band {
-  margin: 0;
+  width: min(100vw, 1680px);
+  margin-block: var(--s5) var(--s4);
+  margin-inline: calc((100% - min(100vw, 1680px)) / 2);
 }
 
 .band img {
   width: 100%;
-  height: clamp(260px, 42vw, 560px);
+  height: clamp(300px, 40vw, 620px);
   object-fit: cover;
-  object-position: center 45%;
+  object-position: 50% 40%;
+  background: none;
+  -webkit-mask-image:
+    linear-gradient(180deg, transparent, #000 14%, #000 80%, transparent),
+    linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(180deg, transparent, #000 14%, #000 80%, transparent),
+    linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-composite: intersect;
 }
 
-/* Bento: a tall feature cell next to two stacked cells. */
+.community-text {
+  max-width: 34rem;
+}
+
+/* Projects: the introduction with the Moon bleeding off the right edge, then the bento. */
+.projects-head {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gap);
+  align-items: start;
+  /* As tall as the Moon (1120 x 1260), so it never reaches into the bento. */
+  min-height: calc(min(36vw, 440px) * 1.125);
+}
+
+.projects-intro {
+  position: relative;
+  z-index: 1;
+}
+
+.moon {
+  position: absolute;
+  top: 0;
+  right: calc(-1 * var(--gutter) - 6vw);
+  z-index: 0;
+  width: min(36vw, 440px);
+  pointer-events: none;
+}
+
+/* The image already carries the page background: no placeholder tile. */
+.moon picture img {
+  background: none;
+}
+
+.moon figcaption {
+  position: absolute;
+  right: calc(var(--gutter) + 6vw);
+  bottom: 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
 .bento {
   display: grid;
-  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s5) var(--gap);
+  margin-top: var(--s5);
 }
 
-@media (width > 760px) {
-  .bento {
-    grid-template-columns: 7fr 5fr;
-  }
-
-  .bento-feature {
-    grid-row: span 2;
-  }
+.page-body .bento {
+  margin-top: 0;
 }
 
-.bento-cell {
+.cell {
   position: relative;
   display: flex;
   flex-direction: column;
+}
+
+.cell-media {
+  position: relative;
   overflow: hidden;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  color: var(--text);
-  text-decoration: none;
-  transition: border-color 0.15s ease;
+  background: var(--bg-2);
 }
 
-.bento-cell:hover {
-  border-color: var(--accent);
+.cell-astro .cell-media {
+  flex: 1 1 0;
+  min-height: 340px;
 }
 
-/* The title link covers the whole card; the ring is drawn around the card instead. */
+.cell-astro .cell-media picture,
+.cell-astro .cell-media img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cell-astro .cell-media img {
+  object-fit: cover;
+  object-position: 50% 55%;
+}
+
+.cell-sstv .cell-media img {
+  width: 100%;
+  aspect-ratio: 640 / 496;
+  object-fit: cover;
+}
+
+.cell-text {
+  padding-top: 20px;
+}
+
+.cell-title {
+  width: fit-content;
+  font-size: var(--fs-h3);
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+}
+
 .stretched-link {
-  color: var(--heading);
+  color: inherit;
   text-decoration: none;
 }
 
@@ -621,164 +1192,622 @@ address {
   inset: 0;
 }
 
-.stretched-link:hover {
-  color: var(--heading);
-}
-
 .stretched-link:focus-visible {
   outline: none;
 }
 
-.bento-cell:has(.stretched-link:focus-visible) {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
+.cell:has(.stretched-link:focus-visible) {
+  outline: 2px solid var(--signal);
+  outline-offset: 4px;
 }
 
-.bento-media img {
-  width: 100%;
-  aspect-ratio: 16 / 10;
-  object-fit: cover;
-  /* SSTV frames carry their title at the top. */
-  object-position: center top;
+.cell:hover .cell-title {
+  color: var(--signal);
 }
 
-/* The feature photo fills whatever height the two stacked cells give the row,
-   instead of stretching the row to its own (portrait) height. */
-.bento-feature .bento-media {
-  position: relative;
-  flex: 1;
-  min-height: 360px;
+.excerpt {
+  max-width: 60ch;
+  margin-top: 10px;
+  font-size: 1rem;
+  line-height: 1.6;
 }
 
-.bento-feature .bento-media img {
-  position: absolute;
-  inset: 0;
-  height: 100%;
-  aspect-ratio: auto;
-  object-position: center 40%;
+/* Weather satellites: a dark readout row (the downlinks in the signal colour). */
+.cell-noaa {
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line-2);
 }
 
-.bento-text {
-  padding: 1.5rem 1.5rem 1.75rem;
+.cell-noaa .cell-text {
+  padding-top: 0;
 }
 
-.bento-title {
-  margin-bottom: 0.4em;
-  font-size: 1.375rem;
+.cell .readout {
+  margin-top: var(--s3);
 }
 
-.bento-text p {
-  margin-bottom: 1.25rem;
-  color: var(--muted);
-}
-
-/* Cell without a photo: a faint star field in the brand yellow. */
-.bento-tinted {
-  justify-content: flex-end;
-  min-height: 280px;
-  background:
-    radial-gradient(circle at 78% 22%, rgb(255 222 115 / 0.16), transparent 42%),
-    radial-gradient(rgb(250 247 239 / 0.14) 1px, transparent 1.6px) 0 0 / 22px 22px,
-    var(--surface);
-}
-
-/* The yellow glow lowers the contrast of muted text: use the body colour here. */
-.bento-tinted .bento-text p {
-  color: var(--text);
-}
-
-/* Lecturer strip: horizontal scroll with snap points, no JavaScript. */
-.strip-section .section-head {
-  margin-bottom: calc(1.5rem - 6px);
-}
-
-.strip {
+/* Readout: the club's real data (frequencies, modes, counts) in ruled cells. */
+.readout {
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 210px;
-  gap: 1rem;
-  margin-block: 0;
-  /* Top padding keeps the links' focus ring inside the scrollport. */
-  padding-block: 6px 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--s3);
+  margin: 0;
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line-2);
+}
+
+.readout dt {
+  color: var(--muted);
+  font: 500 var(--fs-xs)/1.2 var(--font-body);
+}
+
+.readout dd {
+  margin: 10px 0 0;
+  color: var(--heading);
+  font: 600 var(--fs-base)/1.3 var(--font-heading);
+}
+
+.readout dd.mono {
+  font: 500 var(--fs-h3)/1 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+}
+
+.readout dd.freq {
+  color: var(--signal);
+}
+
+.readout dd span {
+  color: var(--muted);
+  font-size: 0.5em;
+  letter-spacing: 0;
+}
+
+/* Lectures: every lecturer as one line-up, next to one featured photo. */
+.lectures {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gap);
+  align-items: start;
+}
+
+/* Separators lead each name; the ones at line starts are clipped, so no line ends on a "/". */
+.lineup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15em 0;
+  margin: 0 0 var(--s4) -1.1em;
+  padding: 0;
   list-style: none;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x mandatory;
-  /* Snap to the content edge, not the padding edge, so the strip lines up with the heading. */
-  scroll-padding-inline: var(--gutter);
-  scrollbar-color: #807d75 transparent;
+  clip-path: inset(-0.5em -0.5em -0.5em 1.1em);
+  font: 700 clamp(1.5rem, 1.1rem + 1.3vw, 2.375rem)/1.3 var(--font-heading);
+  letter-spacing: -0.02em;
 }
 
-.strip li {
-  scroll-snap-align: start;
+.lineup li::before {
+  content: "/";
+  content: "/" / "";
+  display: inline-block;
+  width: 1.1em;
+  color: var(--line-2);
+  font-weight: 500;
+  text-align: center;
 }
 
-.strip a {
-  display: block;
+.lineup a {
   color: var(--heading);
   text-decoration: none;
 }
 
-.strip a:hover {
-  color: var(--accent);
+.lineup a:hover {
+  color: var(--signal);
 }
 
-.strip img {
-  width: 100%;
+.lineup a:focus-visible {
+  outline: none;
+  text-decoration: underline 2px var(--signal);
+  text-underline-offset: 0.2em;
+}
+
+.lecture-feature img {
   aspect-ratio: 3 / 2;
   object-fit: cover;
+  object-position: 72% 50%;
 }
 
-.strip-name {
+.lecture-feature figcaption {
+  padding-top: var(--s2);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+
+.lecture-feature figcaption strong {
   display: block;
-  margin-top: 0.6rem;
-  font-family: var(--font-heading);
-  font-weight: 700;
+  margin-bottom: 4px;
+  color: var(--heading);
+  font: 700 1.1875rem/1.2 var(--font-heading);
+}
+
+/* Wider screens: twelve columns. Below 768px no grid places anything (one column). */
+@media (width >= 768px) {
+  .projects-head,
+  .bento,
+  .lectures {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+
+  .projects-intro {
+    grid-column: 1 / span 7;
+  }
+
+  .community-text {
+    margin-left: auto;
+  }
+
+  .cell-astro {
+    grid-column: 1 / span 7;
+  }
+
+  .cell-sstv {
+    grid-column: 8 / span 5;
+  }
+
+  .cell-noaa {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: subgrid;
+    align-items: center;
+  }
+
+  .cell-noaa .cell-text {
+    grid-column: 1 / span 5;
+  }
+
+  .cell-noaa .readout {
+    grid-column: 7 / -1;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .lineup-wrap {
+    grid-column: 1 / span 7;
+  }
+
+  .lecture-feature {
+    grid-column: 8 / span 5;
+  }
+}
+
+@media (width >= 1024px) {
+  .cell-astro {
+    grid-column: 1 / span 8;
+  }
+
+  .cell-sstv {
+    grid-column: 9 / span 4;
+  }
+
+  .lecture-feature {
+    grid-column: 9 / span 4;
+  }
+
+  .lecture-feature img {
+    aspect-ratio: 4 / 5;
+  }
+}
+
+/* Card into page: the astro card's photo grows into the astrophoto page's header, and every
+   card title flies into its page title (names set inline per project). */
+.cell-astro .cell-media,
+.page-hero {
+  view-transition-name: p-asztro;
+}
+
+::view-transition-old(p-asztro),
+::view-transition-new(p-asztro) {
+  height: 100%;
+  object-fit: cover;
 }
 
 /* ---------- Inner pages ---------- */
 
-.split {
-  display: grid;
-  gap: 2.5rem;
-  align-items: center;
+.page-head {
+  padding-block: clamp(2.5rem, 6vw, 4rem) clamp(2rem, 4vw, 3rem);
 }
 
-@media (width > 860px) {
-  .split {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+.page-title {
+  width: fit-content;
+  font-size: var(--fs-h1);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.035em;
+}
+
+.crumbs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+.crumbs a {
+  color: var(--text);
+}
+
+.page-head .lead {
+  max-width: 54ch;
+  margin-top: 22px;
+  font-size: clamp(1.125rem, 1rem + 0.4vw, 1.3125rem);
+  line-height: 1.55;
+}
+
+.page-lead {
+  max-width: 50ch;
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: var(--fs-lead);
+}
+
+.page-body {
+  padding-bottom: var(--space);
+}
+
+/* Astrophotos: the club's photo of the Orion Nebula behind the title. */
+.page-hero {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: flex-end;
+  min-height: clamp(360px, calc(46svh + var(--nav-h)), 600px);
+  margin-top: calc(-1 * var(--nav-h));
+  padding-top: var(--nav-h);
+  overflow: hidden;
+}
+
+.page-hero-photo {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+}
+
+.page-hero-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 40%;
+}
+
+.page-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, rgb(10 12 15 / 0.55) 0%, rgb(10 12 15 / 0.2) 18%, rgb(10 12 15 / 0.35) 45%, var(--bg) 100%),
+    linear-gradient(90deg, rgb(10 12 15 / 0.75) 0%, rgb(10 12 15 / 0) 65%);
+}
+
+/* Project pages: the lead next to a vertical readout, then the gallery. */
+.project-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s4);
+  margin-bottom: var(--s5);
+}
+
+.project-intro .lead {
+  max-width: 62ch;
+  color: var(--text);
+  font-size: var(--fs-base);
+  line-height: 1.7;
+}
+
+@media (width >= 1024px) {
+  .project-intro {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+
+  .project-intro .lead {
+    grid-column: 1 / span 7;
+  }
+
+  .readout-v {
+    grid-column: 9 / span 4;
+    grid-template-columns: minmax(0, 1fr);
+    align-self: start;
   }
 }
 
-.split-media img {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
+.project-text {
+  max-width: 62ch;
+  margin-bottom: var(--s5);
 }
 
-.lecturers {
-  display: grid;
-  gap: 1.5rem;
+.block-title {
+  margin: var(--s5) 0 var(--s3);
+  font-size: var(--fs-h3);
+}
+
+.empty-note {
+  color: var(--muted);
+}
+
+/* Galleries: a justified wall. Every row has one height; each tile grows in proportion to its
+   aspect ratio (--r, set per tile), so nothing is cropped. In big walls ::after soaks up the
+   last row's free space, so a lone last photo is not blown up; small ones fill their row(s).
+   No frames: the photos are the subject. */
+.gallery {
+  --row: 240px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-@media (width > 760px) {
-  .lecturers {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+.gallery:has(> li:nth-child(7))::after {
+  content: "";
+  flex: 1000000 1 0;
+}
+
+/* flex-grow is the ratio scaled up: rows share their free space in proportion to the ratios,
+   and a row whose ratios add up to less than 1 still fills its width. */
+.gallery li {
+  flex: calc(var(--r) * 100) 1 calc(var(--r) * var(--row));
+  min-width: 0;
+}
+
+.gallery figure {
+  margin: 0;
+}
+
+.gallery a {
+  position: relative;
+  display: block;
+  overflow: clip;
+}
+
+.gallery img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: var(--r);
+  object-fit: cover;
+}
+
+/* Row height per breakpoint; keep in step with ROW_* in src/media.rs (tile sizes). */
+@media (width < 1280px) {
+  .gallery {
+    --row: 18vw;
   }
 }
 
-.lecturer {
-  display: flex;
-  flex-direction: column;
-  background: var(--surface);
-  border: 1px solid var(--line);
+@media (width < 768px) {
+  /* Two radio frames (4:3) per row on a 360px-wide phone. */
+  .gallery {
+    --row: 120px;
+    gap: 6px;
+  }
 }
 
-.lecturer:target {
-  border-color: var(--accent);
+/* Captions: prose for photos, small mono for reception times (real data). */
+.gallery figcaption {
+  padding-top: 8px;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.rxlog figcaption {
+  min-height: calc(1.3em + 8px);
+  color: var(--text);
+  font: 500 0.8125rem/1.3 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hover/focus: a viewfinder lock closes in on the tile (four corner brackets in the signal
+   colour); the tile you returned to from its photo page (:target) stays locked. */
+.gallery a::before {
+  --b: 14px;
+  content: "";
+  position: absolute;
+  inset: 10px;
+  z-index: 1;
+  border: 1px solid var(--signal);
+  -webkit-mask: conic-gradient(at var(--b) var(--b), #0000 75%, #000 0) 0 0 / calc(100% - var(--b)) calc(100% - var(--b));
+  mask: conic-gradient(at var(--b) var(--b), #0000 75%, #000 0) 0 0 / calc(100% - var(--b)) calc(100% - var(--b));
+  opacity: 0;
+  scale: 1.08;
+  pointer-events: none;
+}
+
+.gallery a:focus-visible::before,
+.gallery li:target a::before {
+  opacity: 1;
+  scale: 1;
+}
+
+@media (hover: hover) {
+  .gallery a:hover::before {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .gallery a::before {
+    transition: opacity 0.2s ease, scale 0.4s var(--ease);
+  }
+
+  .gallery img {
+    transition: scale 0.6s var(--ease);
+  }
+
+  @media (hover: hover) {
+    .gallery a:hover img {
+      scale: 1.03;
+    }
+  }
+}
+
+/* Radio frames are "received" line by line as they scroll into view: a 1px signal scan line runs
+   down the frame, and the part not yet "received" is only dimmed, never hidden. A tile fully in
+   view is fully received. The base state is the plain image; the effect exists only with
+   scroll-driven animation support and motion allowed. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .rxlog li {
+      view-timeline: --rx block;
+    }
+
+    .rxlog a::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(var(--signal) 0 1px, rgb(255 222 115 / 0.16) 1px, rgb(10 12 15 / 0.6) 18px);
+      translate: 0 101%;
+      animation: scan linear both;
+      animation-timeline: --rx;
+      animation-range: entry 0% entry 100%;
+    }
+  }
+}
+
+@keyframes scan {
+  from {
+    translate: 0 0;
+  }
+}
+
+/* About: the group photo as a band under the title, then the statement at reading measure. */
+.band-lead {
+  margin-top: 0;
+}
+
+.band-lead img {
+  height: clamp(300px, 52vw, 760px);
+  object-position: 50% 55%;
+}
+
+.about-text .statement + .statement {
+  margin-top: 1em;
+}
+
+/* Contact */
+.contact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s4) var(--gap);
+  align-items: start;
+}
+
+@media (width >= 768px) {
+  .contact {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+
+  .contact-text {
+    grid-column: 1 / span 6;
+  }
+
+  .contact > .frame {
+    grid-column: 8 / -1;
+  }
+}
+
+.contact-text > .prose:first-child p {
+  color: var(--heading);
+  font: 700 1.5rem/1.2 var(--font-heading);
+}
+
+.contact-text > .prose + .prose {
+  margin-top: 0.5em;
+}
+
+.contact-list {
+  margin: 36px 0 0;
+  border-top: 1px solid var(--line-2);
+}
+
+.contact-list div {
+  display: grid;
+  grid-template-columns: 11rem 1fr;
+  gap: 16px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.contact-list dt {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+.contact-list dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  margin: 0;
+  color: var(--heading);
+}
+
+.contact-social a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.contact-social a:hover {
+  color: var(--signal);
+}
+
+/* /elerhetoseg shows the address and e-mail itself: the footer does not repeat them. */
+body:has(.contact) .footer-contact {
+  visibility: hidden;
+}
+
+/* Lecturers page: an index, one row per person, separated only by a rule. Arriving from a
+   name in the home line-up (#slug), the signal tick marks the right person. */
+.lecturers {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lecturer {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s3) var(--gap);
+  align-items: start;
+  padding-block: var(--s5);
+  border-top: 1px solid var(--line);
+}
+
+.lecturer:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.lecturer:target::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 40px;
+  height: 2px;
+  background: var(--signal);
+}
+
+.lecturer-photo {
+  background: var(--bg-2);
 }
 
 .lecturer-photo img {
@@ -787,179 +1816,498 @@ address {
   object-fit: cover;
 }
 
-.lecturer-body {
-  padding: 1.5rem 1.5rem 1.75rem;
-}
-
 .lecturer-body h2 {
-  margin-bottom: 0.2em;
-  font-size: 1.5rem;
+  font-size: var(--fs-h3);
 }
 
 .lecturer-title {
-  margin-bottom: 0.9rem;
-  color: var(--accent);
+  margin: 6px 0 12px;
+  color: var(--heading);
   font-weight: 600;
 }
 
-.project .gallery {
-  margin-top: 2.5rem;
+.lecturer-body .prose {
+  margin-top: 10px;
 }
 
-.project h2 {
-  margin-top: 2.5rem;
+@media (width >= 768px) {
+  .lecturer {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+
+  .lecturer-photo {
+    grid-column: 1 / span 5;
+  }
+
+  .lecturer-body {
+    grid-column: 7 / span 6;
+  }
 }
 
-.empty-note {
-  max-width: 65ch;
-  margin-top: 2.5rem;
-  padding: 1.25rem 1.5rem;
-  border: 1px dashed var(--line-strong);
-  color: var(--muted);
-}
-
-.gallery {
+/* Programs: the next event, the subscribe panel, then a quieter archive. */
+.programs {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
-  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s5) var(--gap);
+  align-items: start;
+}
+
+@media (width >= 1024px) {
+  .programs {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+
+  .events-next,
+  .events-past {
+    grid-column: 1 / span 7;
+  }
+
+  .subscribe {
+    position: sticky;
+    top: calc(var(--nav-h) + var(--s3));
+    grid-column: 9 / span 4;
+    grid-row: 1 / span 2;
+    align-self: start;
+  }
+}
+
+.group-title {
+  margin-bottom: var(--s3);
+  font-size: var(--fs-h3);
+  letter-spacing: -0.01em;
+}
+
+.events {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.gallery a {
-  display: block;
+.event {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr) auto;
+  column-gap: 28px;
+  padding: 24px 0;
+  border-top: 1px solid var(--line);
 }
 
-.gallery img {
-  width: 100%;
-  transition: opacity 0.15s ease;
+.events > .event:first-child {
+  border-top: 0;
 }
 
-.gallery:not(.gallery-masonry) img {
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
+/* The next event: the columns stay aligned with the list, the highlight bleeds into the gutter. */
+.event.is-next {
+  margin-inline: -24px;
+  padding: 24px;
+  box-shadow: inset 2px 0 var(--signal);
+  background: linear-gradient(90deg, var(--signal-wash), transparent 70%);
 }
 
-.gallery a:hover img {
-  opacity: 0.85;
+.ev-date {
+  display: grid;
+  align-content: start;
+  justify-items: start;
 }
 
-/* Mixed photo shapes keep their own aspect ratio. */
-.gallery-masonry {
-  display: block;
-  columns: 3 280px;
-  column-gap: 1rem;
-}
-
-.gallery-masonry li {
-  margin-bottom: 1rem;
-  break-inside: avoid;
-}
-
-.split-text > .button-primary + .prose {
-  margin-top: 2rem;
-}
-
-.prose + .button {
-  margin-top: 1rem;
-}
-
-.calendar-alt {
-  margin-top: 1rem;
-  font-size: 0.95rem;
-}
-
-.contact > .prose:first-child p {
+.ev-day {
   color: var(--heading);
-  font-family: var(--font-heading);
-  font-size: 1.5rem;
-  font-weight: 700;
+  font: 800 2.75rem/0.9 var(--font-heading);
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
 }
 
-.social-list {
+.event.is-next .ev-day {
+  color: var(--signal);
+}
+
+.ev-month {
+  margin-top: 6px;
+  color: var(--heading);
+  font: 700 1rem/1.2 var(--font-heading);
+}
+
+.ev-wd {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+
+.ev-time {
+  color: var(--text);
+  font: 500 var(--fs-sm)/1.4 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.ev-title {
+  margin-top: 6px;
+  font-size: var(--fs-h3);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.event .where {
+  margin-top: 8px;
+  font-size: var(--fs-sm);
+}
+
+.ev-note {
+  max-width: 60ch;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  overflow-wrap: anywhere;
+}
+
+.event .tag-today {
+  align-self: start;
+}
+
+/* The archive: smaller and quieter. */
+.events-past .event {
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  padding-block: 16px;
+}
+
+.events-past .ev-day {
+  font-size: 1.75rem;
+}
+
+.events-past .ev-title {
+  font-size: var(--fs-base);
+}
+
+.events-past .ev-day,
+.events-past .ev-month,
+.events-past .ev-title {
+  color: var(--text);
+}
+
+.events-empty {
+  max-width: 60ch;
+  color: var(--text);
+}
+
+.subscribe {
+  display: grid;
+  gap: 12px;
+}
+
+.subscribe .prose p {
+  color: var(--heading);
+  font: 600 var(--fs-lead)/1.35 var(--font-heading);
+}
+
+.subscribe .button {
+  padding-inline: 16px;
+  white-space: normal;
+  text-align: center;
+}
+
+.subscribe .button-line {
+  font-size: var(--fs-sm);
+}
+
+.subscribe .link-arrow {
+  justify-self: start;
+  margin-top: 6px;
+  font-size: var(--fs-sm);
+}
+
+@media (width < 768px) {
+  .event.is-next {
+    margin-inline: calc(-1 * var(--gutter));
+    padding-inline: var(--gutter);
+  }
+}
+
+/* ---------- Photo page (/projektek/<project>/kep/<slug>) ---------- */
+
+.photo-view {
+  padding-bottom: clamp(2.5rem, 6vw, 4.5rem);
+}
+
+.photo-bar {
   display: flex;
-  gap: 1.5rem;
-  margin: 2rem 0 0;
-  padding: 0;
-  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 64px;
 }
 
-.social-list a,
-.footer-social a {
+.photo-back {
   display: inline-flex;
   align-items: center;
-  gap: 0.5em;
+  gap: 10px;
   color: var(--heading);
+  font: 700 1rem/1.2 var(--font-heading);
   text-decoration: none;
 }
 
-.social-list a:hover,
-.footer-social a:hover {
-  color: var(--accent);
+.photo-back .icon {
+  color: var(--signal);
+}
+
+.photo-count {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.photo-stage {
+  margin: 0;
+}
+
+.photo-frame {
+  position: relative;
+  width: fit-content;
+  margin-inline: auto;
+}
+
+/* As large as the viewport allows, never cropped, never upscaled; matches the sizes attribute
+   (94vw, 76vh). The box comes from --r and --w (set on .photo-frame), so it is reserved before
+   the file arrives. */
+.photo-stage img {
+  width: min(94vw, calc(76vh * var(--r)), var(--w));
+  height: auto;
+  aspect-ratio: var(--r);
+  object-fit: contain;
+  background: none;
+}
+
+.photo-caption {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.photo-title {
+  margin: 0;
+  font-size: var(--fs-h3);
+  text-wrap: balance;
+}
+
+.photo-caption p {
+  max-width: 60ch;
+  margin: 8px auto 0;
+  color: var(--muted);
+}
+
+/* Previous/next: labelled glass buttons under the photo on phones; on wide screens square glass
+   buttons floating over its left and right edges, where the glass has the photo to refract. */
+.photo-nav {
+  display: flex;
+  gap: 12px;
+  margin: var(--s3) var(--gutter) 0;
+}
+
+.photo-step-next {
+  margin-left: auto;
+}
+
+@media (width >= 768px) and (hover: hover) {
+  .photo-nav {
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    margin: 0;
+    padding-inline: 16px;
+    pointer-events: none;
+  }
+
+  .photo-step {
+    width: 52px;
+    min-height: 52px;
+    padding: 0;
+    pointer-events: auto;
+  }
+
+  .photo-step-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@media (width < 768px) {
+  .photo-stage img {
+    width: min(100vw, calc(70svh * var(--r)), var(--w));
+  }
+}
+
+/* The tile being opened (hovered, focused, or the one the photo page returns to) and the large
+   photo share a name, so the cross-document view transition morphs one into the other. */
+.gallery:not(:has(a:focus-visible)) a:hover img,
+.gallery a:focus-visible img,
+.gallery:not(:has(a:hover, a:focus-visible)) li:target img,
+.photo-stage img {
+  view-transition-name: photo;
+}
+
+::view-transition-group(photo) {
+  animation-duration: 340ms;
+  animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
 /* ---------- Footer ---------- */
 
 .site-footer {
-  padding-top: 3.5rem;
-  background: var(--bg-deep);
-  border-top: 1px solid var(--line);
-  font-size: 0.95rem;
+  margin-top: auto;
+  overflow: clip;
+  padding-top: clamp(4rem, 8vw, 6rem);
 }
 
-.footer-grid {
+.footer-inner {
   display: grid;
-  gap: 2rem;
+  grid-template-columns: 5fr 4fr 3fr;
+  align-items: center;
+  gap: 20px var(--gap);
+  padding-top: 32px;
+  /* The top rule spans the content, not the container's side padding. */
+  background: linear-gradient(var(--line), var(--line)) var(--gutter) 0 / calc(100% - 2 * var(--gutter)) 1px no-repeat;
+  font-size: 0.9375rem;
 }
 
-@media (width > 760px) {
-  .footer-grid {
-    grid-template-columns: 2fr 1fr 1fr;
-  }
-}
-
-.footer-name {
-  margin: 1rem 0 0.5rem;
+.footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  justify-self: start;
   color: var(--heading);
-  font-family: var(--font-heading);
-  font-size: 1.125rem;
-  font-weight: 700;
+  font: 700 1.0625rem/1.25 var(--font-heading);
+  text-decoration: none;
 }
 
-.footer-org address {
-  color: var(--muted);
+.footer-brand img {
+  width: 32px;
+  height: 32px;
 }
 
-.footer-nav ul,
+.footer-contact {
+  color: var(--text);
+  font-style: normal;
+  line-height: 1.7;
+}
+
+/* Social links: small Liquid Glass circles (see .button). */
 .footer-social {
-  display: grid;
-  align-content: start;
-  gap: 0.5rem;
+  justify-self: end;
+  display: flex;
+  gap: 10px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.footer-nav a {
-  color: var(--text);
-  text-decoration: none;
+.footer-social a {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0.02)), rgb(255 255 255 / 0.03);
+  box-shadow: inset 0 1px 0.5px rgb(255 255 255 / 0.3), inset 0 0 0 1px rgb(255 255 255 / 0.1);
+  color: var(--heading);
 }
 
-.footer-nav a:hover {
-  color: var(--accent);
+.footer-social a:hover {
+  box-shadow: inset 0 1px 0.5px rgb(255 255 255 / 0.4), inset 0 0 0 1px rgb(255 222 115 / 0.55);
+  color: var(--signal);
 }
 
-.footer-bottom {
-  margin-top: 2.5rem;
-  padding-block: 1.25rem;
-  border-top: 1px solid var(--line);
+.footer-social .icon {
+  width: 20px;
+  height: 20px;
+}
+
+.footer-copy {
+  grid-column: 1 / -1;
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
 }
 
-.footer-bottom p {
-  margin: 0;
+/* The wordmark: sized to the container width (cqi), cut at about half its cap height so it sits
+   on the page's bottom edge like a horizon. Its box height is fixed in em, so the font swap
+   cannot move anything. It rises into place as the page bottom scrolls in. */
+.footer-mark {
+  container-type: inline-size;
+  margin-top: clamp(2rem, 5vw, 3.5rem);
+  user-select: none;
+}
+
+.footer-mark span {
+  display: block;
+  height: 0.52em;
+  overflow: clip;
+  color: var(--bg-3);
+  font: 800 24cqi/0.7 var(--font-heading);
+  letter-spacing: -0.04em;
+  white-space: nowrap;
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .footer-mark {
+      view-timeline: --mark block;
+    }
+
+    .footer-mark span {
+      animation: rise-mark linear both;
+      animation-timeline: --mark;
+      animation-range: entry 0% entry 100%;
+    }
+  }
+}
+
+@keyframes rise-mark {
+  from {
+    translate: 0 40%;
+  }
+}
+
+/* ---------- Motion: feedback only ---------- */
+
+@media (prefers-reduced-motion: no-preference) {
+  .link-arrow .icon,
+  .button .icon {
+    transition: transform 0.2s ease;
+  }
+
+  /* Glass buttons: lift on hover with a light sweep, squish when pressed (a slight overshoot
+     on release, like iOS). Transform only. */
+  .button {
+    transition: box-shadow 0.2s ease, color 0.2s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .button::after {
+    transition: transform 0.75s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+
+  .button:hover {
+    transform: translateY(-1px);
+  }
+
+  .button:hover::after {
+    transform: translateX(120%);
+  }
+
+  .button:active {
+    transform: scale(0.96);
+    transition-duration: 0.1s;
+  }
+
+  .link-arrow:hover .icon,
+  .button:hover .icon {
+    transform: translateX(3px);
+  }
+
+  .cell-media img {
+    transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+
+  .cell:hover .cell-media img {
+    transform: scale(1.025);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -973,7 +2321,149 @@ address {
     transition: none !important;
   }
 
-  .strip {
-    scroll-behavior: auto;
+  .button:active {
+    transform: none;
+  }
+}
+
+/* ---------- Tablet ---------- */
+
+@media (width < 1024px) {
+  .nav-desktop .nav-item > a {
+    padding: 0 10px;
+    font-size: var(--fs-sm);
+  }
+}
+
+/* ---------- Mobile (< 768px): one column ---------- */
+
+@media (width < 768px) {
+  :root {
+    --gap: 16px;
+    --nav-h: 60px;
+    --s4: 32px;
+    --s5: 48px;
+  }
+
+  .nav-desktop {
+    display: none;
+  }
+
+  .nav-mobile {
+    display: block;
+  }
+
+  /* While the sheet is open, hide the page behind it: Tab must not land under the panel. */
+  body:has(.nav-mobile details[open]) :is(main, .site-footer) {
+    visibility: hidden;
+  }
+
+  .hero {
+    min-height: 100svh;
+  }
+
+  .hero-photo img {
+    object-position: 46% 50%;
+  }
+
+  .hero::before {
+    background: linear-gradient(180deg, rgb(10 12 15 / 0.55) 0%, rgb(10 12 15 / 0.15) 30%, rgb(10 12 15 / 0.4) 55%, var(--bg) 78%);
+  }
+
+  .hero-inner {
+    gap: clamp(120px, 28svh, 240px);
+    padding-top: 40px;
+    padding-bottom: 24px;
+  }
+
+  .actions .button {
+    flex: 1 1 auto;
+  }
+
+  .signal {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .signal-link {
+    justify-self: start;
+  }
+
+  .signal-when {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+  }
+
+  .signal-when .sub {
+    flex-basis: 100%;
+  }
+
+  .band img {
+    height: auto;
+    aspect-ratio: 4 / 3;
+  }
+
+  .projects-head {
+    min-height: 0;
+  }
+
+  .moon {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: 82%;
+    margin: -8px calc(-1 * var(--gutter)) 0 auto;
+  }
+
+  .moon figcaption {
+    position: static;
+    margin-top: 8px;
+    padding-right: var(--gutter);
+    text-align: right;
+  }
+
+  .cell-astro .cell-media {
+    flex: none;
+    min-height: 0;
+    aspect-ratio: 4 / 5;
+  }
+
+  .lecture-feature {
+    order: -1;
+  }
+
+  .event {
+    grid-template-columns: 4.5rem 1fr;
+    column-gap: 18px;
+  }
+
+  .event .tag-today {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
+    margin-top: 10px;
+  }
+
+  .ev-main {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
+  .ev-day {
+    font-size: 2.25rem;
+  }
+
+  .contact-list div {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .footer-inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .footer-social {
+    justify-self: start;
   }
 }

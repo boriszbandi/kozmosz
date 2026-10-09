@@ -7,7 +7,7 @@ use leptos_router::{
 
 use crate::{
     layout::{Footer, Header},
-    pages::{About, Contact, Home, Lecturers, NotFound, Programs, Project, Projects},
+    pages::{About, Contact, Home, Lecturers, NotFound, PhotoPage, Programs, Project, Projects},
     site,
 };
 
@@ -32,8 +32,16 @@ pub const STATIC_PAGES: &[&str] = &[
 const ISLAND_PAGES: &[&str] = &[];
 
 /// Prefetch same-origin page links on hover, prerender on pointerdown (Chromium; ignored
-/// elsewhere). /img/ is excluded: gallery links point at full-size JPEGs.
-const SPECULATION_RULES: &str = r#"{"prefetch":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/img/*"}}]},"eagerness":"moderate"}],"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/img/*"}}]},"eagerness":"conservative"}]}"#;
+/// elsewhere). On photo pages the previous and next photo pages are prefetched right away, and
+/// photo pages are prerendered on hover, so the tile-to-photo morph lands on a decoded image.
+/// /img/ and /drive/ are excluded: some gallery links point at full-size JPEGs.
+const SPECULATION_RULES: &str = r#"{"prefetch":[{"where":{"selector_matches":"a[rel=next], a[rel=prev]"},"eagerness":"eager"},{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/img/*","/drive/*"]}}]},"eagerness":"moderate"}],"prerender":[{"where":{"or":[{"href_matches":"/projektek/*/kep/*"},{"selector_matches":"a[rel=next], a[rel=prev]"}]},"eagerness":"moderate"},{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/img/*","/drive/*"]}}]},"eagerness":"conservative"}]}"#;
+
+/// The only inline script (approved by the user 2026-10-08): the mobile menu is a <details>, and a
+/// page restored from the back/forward cache would come back with the menu still open. Closing it
+/// on pagehide stores the closed state, so nothing flickers on restore.
+const CLOSE_MENU_ON_LEAVE: &str =
+    r#"addEventListener("pagehide",()=>{for(const d of document.querySelectorAll(".nav-mobile details[open]"))d.open=false})"#;
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     let islands = needs_islands();
@@ -44,7 +52,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
             <head>
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <meta name="theme-color" content="#1f1d1b"/>
+                <meta name="theme-color" content="#0a0c0f"/>
                 <link rel="icon" href="/favicon.ico" sizes="32x32"/>
                 <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
                 <link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
@@ -52,6 +60,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                 <link rel="preload" href="/fonts/urbanist-hu.woff2" r#as="font" r#type="font/woff2" crossorigin=""/>
                 <Styles options=options.clone()/>
                 <script type="speculationrules" inner_html=SPECULATION_RULES></script>
+                <script inner_html=CLOSE_MENU_ON_LEAVE></script>
                 <AutoReload options=options.clone()/>
                 {islands.then(|| view! { <HydrationScripts options islands=true/> })}
                 <MetaTags/>
@@ -127,6 +136,8 @@ pub fn App() -> impl IntoView {
                         path=path!("/projektek/idojaras-muhold")
                         view=|| view! { <Project name="projektek-idojaras-muhold"/> }
                     />
+                    // One gallery photo, large (rendered per request: the galleries follow Drive).
+                    <Route path=path!("/projektek/:project/kep/:slug") view=PhotoPage/>
                 </Routes>
             </main>
             <Footer/>

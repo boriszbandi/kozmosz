@@ -25,7 +25,10 @@ use axum::{
 use leptos::config::{Env, LeptosOptions};
 use tower::ServiceExt;
 
-use crate::calendar::{Feed, REFRESH_EVERY};
+use crate::{
+    calendar::{self, Feed},
+    drive::{self, Library},
+};
 
 const HTML: HeaderValue = HeaderValue::from_static("text/html; charset=utf-8");
 const NO_CACHE: HeaderValue = HeaderValue::from_static("no-cache");
@@ -132,6 +135,7 @@ impl PageCache {
             .await
             .map_err(|err| leptos::logging::error!("page cache: {path} failed to render: {err}"))
             .ok()?;
+        let html = strip_nonces(html);
         if let Some(previous) = previous.filter(|p| p.identity == html) {
             return Some(previous.clone());
         }
@@ -151,22 +155,45 @@ impl PageCache {
     }
 }
 
-/// Background task: downloads the calendar every [`REFRESH_EVERY`] and renders the cached pages
-/// again after every attempt, successful or not, so "upcoming" and "past" also follow the clock.
+/// Background task: downloads the calendar every [`calendar::REFRESH_EVERY`] and renders the
+/// cached pages again after every attempt, successful or not, so "upcoming" and "past" also
+/// follow the clock.
 pub fn spawn_calendar_refresh(mut feed: Feed, cache: Arc<PageCache>) {
     tokio::spawn(async move {
-        let mut ticks = tokio::time::interval_at(tokio::time::Instant::now() + REFRESH_EVERY, REFRESH_EVERY);
+        let every = calendar::REFRESH_EVERY;
+        let mut ticks = tokio::time::interval_at(tokio::time::Instant::now() + every, every);
         ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
             ticks.tick().await;
             feed.refresh(Duration::from_secs(30)).await;
-            // In its own task, so a panicking render cannot end this loop.
-            let cache = cache.clone();
-            if let Err(err) = tokio::spawn(async move { cache.refresh().await }).await {
-                leptos::logging::error!("page cache: refresh failed: {err}");
+            refresh_pages(&cache).await;
+        }
+    });
+}
+
+/// Background task: syncs the Drive galleries right away and then every
+/// [`drive::REFRESH_EVERY`]; the cached pages are rendered again whenever a gallery changed.
+/// The first sync may take minutes (every photo is encoded); pages meanwhile show what the
+/// cache directory already holds, or the Markdown images.
+pub fn spawn_drive_refresh(mut library: Library, cache: Arc<PageCache>) {
+    tokio::spawn(async move {
+        let mut ticks = tokio::time::interval(drive::REFRESH_EVERY);
+        ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            ticks.tick().await;
+            if library.refresh().await {
+                refresh_pages(&cache).await;
             }
         }
     });
+}
+
+/// In its own task, so a panicking render cannot end the caller's loop.
+async fn refresh_pages(cache: &Arc<PageCache>) {
+    let cache = cache.clone();
+    if let Err(err) = tokio::spawn(async move { cache.refresh().await }).await {
+        leptos::logging::error!("page cache: refresh failed: {err}");
+    }
 }
 
 fn get(path: &str) -> Request {
@@ -175,6 +202,29 @@ fn get(path: &str) -> Request {
 
 async fn body(response: Response) -> Result<Bytes, axum::Error> {
     to_bytes(response.into_body(), usize::MAX).await
+}
+
+/// leptos_axum gives every render a random CSP nonce (`<script nonce="…">` on its streaming
+/// bootstrap scripts). No Content-Security-Policy is sent and one cached copy serves every
+/// visitor, so drop it: otherwise every refresh yields new bytes and a new ETag, and browsers
+/// could never revalidate with a 304.
+fn strip_nonces(html: Bytes) -> Bytes {
+    const TAG: &[u8] = b"<script nonce=\"";
+    let Some(first) = html.windows(TAG.len()).position(|w| w == TAG) else {
+        return html;
+    };
+    let mut out = Vec::with_capacity(html.len());
+    out.extend_from_slice(&html[..first]);
+    let mut rest = &html[first..];
+    while let Some(at) = rest.windows(TAG.len()).position(|w| w == TAG) {
+        out.extend_from_slice(&rest[..at]);
+        let after = &rest[at + TAG.len()..];
+        let Some(end) = after.iter().position(|&b| b == b'"') else { break };
+        out.extend_from_slice(b"<script");
+        rest = &after[end + 1..];
+    }
+    out.extend_from_slice(rest);
+    out.into()
 }
 
 impl Page {
@@ -306,7 +356,7 @@ fn accepts(header: &str, coding: &str) -> bool {
 pub struct CachePolicy {
     /// /pkg: JS, WASM, CSS. Immutable only when file names carry a content hash.
     pkg: HeaderValue,
-    /// /img and /fonts: immutable in production. Rule: a changed file gets a new file name.
+    /// /img, /drive and /fonts: immutable in production. Rule: a changed file gets a new file name.
     img: HeaderValue,
     /// Other files under the site root (favicon, robots.txt).
     other: HeaderValue,
@@ -337,11 +387,15 @@ pub async fn cache_control(State(policy): State<CachePolicy>, req: Request, next
         .get(CONTENT_TYPE)
         .and_then(|v| v.to_str().ok())
         .is_some_and(|v| v.starts_with("text/html"));
-    let value = if is_html || !(status.is_success() || status == StatusCode::NOT_MODIFIED) {
+    let value = if status == StatusCode::MOVED_PERMANENTLY {
+        // Old WordPress URLs and trailing slashes: browsers may skip the hop on repeat visits,
+        // but only for a day (production), so a corrected redirect map takes effect.
+        policy.other.clone()
+    } else if is_html || !(status.is_success() || status == StatusCode::NOT_MODIFIED) {
         NO_CACHE
     } else if path.starts_with("/pkg/") {
         policy.pkg
-    } else if path.starts_with("/img/") || path.starts_with("/fonts/") {
+    } else if path.starts_with("/img/") || path.starts_with("/drive/") || path.starts_with("/fonts/") {
         policy.img
     } else {
         policy.other
@@ -473,6 +527,14 @@ mod tests {
         assert_eq!(redirect_of("///evil.example/").await, None);
         assert_eq!(redirect_of("/\\evil.example/").await, None);
         assert_eq!(redirect_of("/\\/evil.example/").await, None);
+    }
+
+    #[test]
+    fn nonces_are_stripped() {
+        let html = Bytes::from_static(b"<p>a</p><script nonce=\"Xy1-_\">A=[];</script><script nonce=\"Q\">B</script>");
+        assert_eq!(&strip_nonces(html)[..], b"<p>a</p><script>A=[];</script><script>B</script>");
+        let plain = Bytes::from_static(b"<p>no scripts</p>");
+        assert_eq!(strip_nonces(plain.clone()), plain);
     }
 
     #[test]

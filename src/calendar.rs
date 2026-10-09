@@ -29,6 +29,8 @@ pub struct Calendar {
     pub upcoming: Vec<Event>,
     /// Events that have ended, most recent first.
     pub past: Vec<Event>,
+    /// Budapest date at the time of the refresh (for "Ma" labels).
+    pub today: Option<Date>,
 }
 
 /// One occurrence of a calendar event, ready to display. All text is plain text (no HTML, no
@@ -94,6 +96,9 @@ const MONTHS: [&str; 12] = [
     "december",
 ];
 const WEEKDAYS: [&str; 7] = ["hétfő", "kedd", "szerda", "csütörtök", "péntek", "szombat", "vasárnap"];
+/// The usual Hungarian month abbreviations.
+const MONTHS_SHORT: [&str; 12] =
+    ["jan.", "febr.", "márc.", "ápr.", "máj.", "jún.", "júl.", "aug.", "szept.", "okt.", "nov.", "dec."];
 
 impl Date {
     /// Days since 1970-01-01 (Howard Hinnant's `days_from_civil`).
@@ -122,6 +127,21 @@ impl Date {
     pub fn without_year(self) -> String {
         let month = MONTHS.get(usize::from(self.month).wrapping_sub(1)).copied().unwrap_or("");
         format!("{month} {}., {}", self.day, WEEKDAYS[self.weekday()])
+    }
+
+    /// "okt."
+    pub fn month_short(self) -> &'static str {
+        MONTHS_SHORT.get(usize::from(self.month).wrapping_sub(1)).copied().unwrap_or("")
+    }
+
+    /// "okt. 8."
+    pub fn short(self) -> String {
+        format!("{} {}.", self.month_short(), self.day)
+    }
+
+    /// "csütörtök"
+    pub fn weekday_name(self) -> &'static str {
+        WEEKDAYS[self.weekday()]
     }
 
     /// "2026-10-08", for `<time datetime>`.

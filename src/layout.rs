@@ -14,7 +14,11 @@ pub fn PageMeta(
     /// Route of the page, e.g. "/rolunk".
     #[prop(into)]
     path: String,
+    /// Share image: (path, width, height). Default: the site's og.jpg.
+    #[prop(optional)]
+    image: Option<(String, u32, u32)>,
 ) -> impl IntoView {
+    let (image, image_w, image_h) = image.unwrap_or_else(|| ("/img/og.jpg".into(), 1200, 630));
     let full_title = if title.is_empty() { site::NAME.to_owned() } else { format!("{title} | {}", site::NAME) };
     let url = format!("{}{}", site::ORIGIN, if path == "/" { "" } else { &path });
     view! {
@@ -27,9 +31,9 @@ pub fn PageMeta(
         <Meta property="og:title" content=full_title/>
         <Meta property="og:description" content=description/>
         <Meta property="og:url" content=url/>
-        <Meta property="og:image" content=format!("{}/img/og.jpg", site::ORIGIN)/>
-        <Meta property="og:image:width" content="1200"/>
-        <Meta property="og:image:height" content="630"/>
+        <Meta property="og:image" content=format!("{}{image}", site::ORIGIN)/>
+        <Meta property="og:image:width" content=image_w.to_string()/>
+        <Meta property="og:image:height" content=image_h.to_string()/>
     }
 }
 
@@ -49,7 +53,8 @@ pub fn Header() -> impl IntoView {
                 // Zero-JS mobile menu: <details> toggles a full-screen panel.
                 <nav class="nav-mobile" aria-label="Főmenü">
                     <details>
-                        <summary aria-label="Menü">
+                        <summary>
+                            "Menü"
                             <span class="nav-mobile-open"><Icon svg=icons::LIST/></span>
                             <span class="nav-mobile-close"><Icon svg=icons::X/></span>
                         </summary>
@@ -76,7 +81,9 @@ fn NavLinks() -> impl IntoView {
                                 {item
                                     .children
                                     .iter()
-                                    .map(|&(label, href)| view! { <li><A href=href exact=true>{label}</A></li> })
+                                    // Not exact: the photo pages under a project (/projektek/isstv/kep/…)
+                                    // keep the project, and so "Projektek", marked as current.
+                                    .map(|&(label, href)| view! { <li><A href=href>{label}</A></li> })
                                     .collect_view()}
                             </ul>
                         }
@@ -88,6 +95,9 @@ fn NavLinks() -> impl IntoView {
                             <A href=item.href exact=true>
                                 {item.label}
                                 {has_sub.then(|| view! { <Icon svg=icons::CARET_DOWN/> })}
+                                // The glass pill behind the current item; it glides to the new
+                                // item between pages (view transition, style/main.css).
+                                <span class="nav-ink" aria-hidden="true"></span>
                             </A>
                             {children}
                         </li>
@@ -102,41 +112,33 @@ fn NavLinks() -> impl IntoView {
 pub fn Footer() -> impl IntoView {
     view! {
         <footer class="site-footer">
-            <div class="container footer-grid">
-                <div class="footer-org">
-                    <img src="/img/kozmosz-mark.svg" alt="" width="56" height="56"/>
-                    <p class="footer-name">{site::NAME}</p>
-                    <address>
-                        {site::ADDRESS}
-                        <br/>
-                        <a href=format!("mailto:{}", site::EMAIL)>{site::EMAIL}</a>
-                    </address>
-                </div>
-                <nav class="footer-nav" aria-label="Lábléc">
-                    <ul role="list">
-                        {site::NAV
-                            .iter()
-                            .map(|item| view! { <li><a href=item.href>{item.label}</a></li> })
-                            .collect_view()}
-                    </ul>
-                </nav>
+            <div class="container footer-inner">
+                <a class="footer-brand" href="/">
+                    <img src="/img/kozmosz-mark.svg" alt="" width="32" height="32"/>
+                    {site::NAME}
+                </a>
+                <address class="footer-contact">
+                    {site::ADDRESS}
+                    <br/>
+                    <a href=format!("mailto:{}", site::EMAIL)>{site::EMAIL}</a>
+                </address>
                 <ul class="footer-social" role="list">
                     <li>
-                        <a href=site::FACEBOOK_URL rel="noopener">
+                        <a href=site::FACEBOOK_URL rel="noopener" aria-label="Facebook">
                             <Icon svg=icons::FACEBOOK_LOGO/>
-                            "Facebook"
                         </a>
                     </li>
                     <li>
-                        <a href=site::INSTAGRAM_URL rel="noopener">
+                        <a href=site::INSTAGRAM_URL rel="noopener" aria-label="Instagram">
                             <Icon svg=icons::INSTAGRAM_LOGO/>
-                            "Instagram"
                         </a>
                     </li>
                 </ul>
+                <p class="footer-copy">"© 2026 " {site::NAME}</p>
             </div>
-            <div class="container footer-bottom">
-                <p>"© 2026 " {site::NAME}</p>
+            // The name as a horizon: huge, tone on tone, cut by the page's bottom edge.
+            <div class="container footer-mark" aria-hidden="true">
+                <span>{site::SHORT_NAME}</span>
             </div>
         </footer>
     }

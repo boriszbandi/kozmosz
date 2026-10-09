@@ -1,6 +1,12 @@
+// Leptos view types nest deeply (the project cards with their readouts exceed the default 128
+// in the hydrate build).
+#![recursion_limit = "256"]
+
 pub mod app;
 pub mod calendar;
 mod content;
+pub mod drive;
+mod gallery;
 #[allow(dead_code)] // generated icon palette: not every icon is in use
 mod icons;
 mod images;

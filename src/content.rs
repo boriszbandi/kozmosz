@@ -230,6 +230,15 @@ mod tests {
                 assert!(crate::images::get(&image.key).is_some(), "{name}: unknown image {}", image.key);
                 assert!(!image.alt.trim().is_empty(), "{name}: empty alt for {}", image.key);
             }
+            for block in doc.blocks() {
+                if let Block::Html(html) = block {
+                    assert!(
+                        !html.contains("\"kep:"),
+                        "{name}: kep: image outside a standalone image paragraph \
+                         (put it on its own line, plain-text alt, blank line before and after)"
+                    );
+                }
+            }
         }
     }
 }

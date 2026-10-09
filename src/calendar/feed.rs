@@ -149,6 +149,7 @@ pub fn build(events: &[VEvent], now: Timestamp, zone: &TimeZone) -> Calendar {
         loaded: true,
         upcoming: upcoming.iter().take(MAX_UPCOMING).map(|o| event(o, zone)).collect(),
         past: past.iter().take(MAX_PAST).map(|o| event(o, zone)).collect(),
+        today: Some(local(now, zone).date),
     }
 }
 
