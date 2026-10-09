@@ -42,6 +42,8 @@ Kimenet: `target/release/kozmosz` (szerver), `target/release/hash.txt` és `targ
 
 ### Futtatás szerveren
 
+Debian 12/13-ra kész telepítő van: **[deploy/README.md](deploy/README.md)** (fordítás a szerveren, systemd-szolgáltatás, Caddy automatikus HTTPS-sel, frissítő script). Kézzel így megy:
+
 Másold egy könyvtárba:
 
 ```text

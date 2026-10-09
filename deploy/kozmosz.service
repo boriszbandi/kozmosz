@@ -1,0 +1,46 @@
+# The Kozmosz website. Installed to /etc/systemd/system/kozmosz.service by deploy/install.sh.
+# Logs: journalctl -u kozmosz -f
+
+[Unit]
+Description=Kozmosz website (Rust, Leptos + axum)
+# The calendar and the Drive galleries are downloaded at startup.
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/kozmosz
+EnvironmentFile=/etc/kozmosz/kozmosz.env
+ExecStart=/opt/kozmosz/kozmosz
+Restart=always
+RestartSec=2
+# SIGTERM: the server finishes the requests in flight, then exits.
+TimeoutStopSec=15
+
+# A throwaway user with no rights outside its own state directory (/var/lib/kozmosz: the Drive
+# photo cache). Everything else on the machine is read-only or invisible to it.
+DynamicUser=yes
+StateDirectory=kozmosz
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
