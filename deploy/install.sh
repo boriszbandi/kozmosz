@@ -17,7 +17,9 @@ CARGO_LEPTOS_VERSION=0.3.11
 
 [ "$(id -u)" -ne 0 ] || die "Ne rootként futtasd, hanem a saját felhasználóddal (sudo joggal)."
 command -v sudo >/dev/null || die "Kell a sudo: rootként apt install sudo, majd usermod -aG sudo <felhasználó>, és jelentkezz be újra."
-sudo -v
+# Asks for the password now (if needed) rather than in the middle. Not `sudo -v`: that demands a
+# password even with a NOPASSWD rule when the sudo group's own rule also matches.
+sudo true
 
 if [ -r /etc/os-release ]; then
     # shellcheck source=/dev/null
