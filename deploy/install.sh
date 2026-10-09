@@ -43,8 +43,12 @@ $others
 fi
 
 step "Csomagok (apt)"
-sudo apt-get update
-sudo apt-get install -y --no-install-recommends \
+# A fresh machine often runs its automatic updates (unattended-upgrades) right after boot and
+# holds the package lock meanwhile: wait for it instead of failing.
+apt_wait=(-o DPkg::Lock::Timeout=900)
+ok "Ha épp automatikus rendszerfrissítés fut, megvárom (legfeljebb 15 percig)."
+sudo apt-get "${apt_wait[@]}" update
+sudo apt-get "${apt_wait[@]}" install -y --no-install-recommends \
     build-essential pkg-config cmake nasm git curl ca-certificates caddy
 
 step "Rust és cargo-leptos ($USER felhasználónak)"
@@ -92,7 +96,11 @@ fi
 
 "$REPO_DIR/deploy/update.sh" --no-pull
 
-ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+# The address to try in a browser. On Google Cloud the machine itself only knows its internal
+# address; the external one comes from the metadata server.
+ip=$(curl -fsS --max-time 2 -H "Metadata-Flavor: Google" \
+    http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip 2>/dev/null ||
+    hostname -I 2>/dev/null | awk '{print $1}' || true)
 step "Kész"
 cat <<EOF
 Az oldal fut. Próbáld ki egy böngészőben: http://${ip:-<a gép IP-címe>}/

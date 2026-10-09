@@ -7,7 +7,8 @@ Az oldal a szerveren fordul le, és systemd-szolgáltatásként fut. Előtte a [
 - Debian 12 vagy 13, és egy sima felhasználó sudo joggal (nem root).
 - Fordításhoz legalább 3,5 GB memória (RAM és swap együtt) és 8 GB szabad hely. Ha kevesebb van, lásd lent: [Kevés memória](#kevés-memória). Futás közben az oldal kb. 100 MB-ot használ.
 - Kimenő internet (GitHub, crates.io, Google Naptár és Drive).
-- Bejövő 80-as és 443-as port (TCP, és 443 UDP is a HTTP/3-hoz). Ha egyetemi tűzfal van a gép előtt, ezeket ott is nyitni kell.
+- Bejövő 80-as és 443-as port (TCP, és 443 UDP is a HTTP/3-hoz). Ha tűzfal van a gép előtt, ezeket ott is nyitni kell. Google Cloudon ez a VM beállításai között az „Allow HTTP traffic” és „Allow HTTPS traffic” pipa, vagy egy VPC-tűzfalszabály (`tcp:80,443`, `udp:443`).
+- A 80-as és 443-as porton ne fusson más webszerver. Ha fut, a telepítő szól. Az nginx így állítható le végleg: `sudo systemctl disable --now nginx` (az Apache-nál `apache2`).
 
 ## Első telepítés
 
@@ -18,7 +19,7 @@ cd ~/kozmosz
 ./deploy/install.sh
 ```
 
-Az első futás 20-40 perc, mert az elejétől lefordít mindent. A script ezeket csinálja:
+Az első futás 20-40 perc, mert az elejétől lefordít mindent. Egy frissen indított gépen előbb még az automatikus rendszerfrissítés is futhat, ezt a script megvárja. A script ezeket csinálja:
 
 1. Telepíti a fordításhoz kellő csomagokat és a Caddyt (`apt`).
 2. A te felhasználódnak telepíti a Rustot (rustup) és a `cargo-leptos`-t.
