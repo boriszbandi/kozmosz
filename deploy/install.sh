@@ -62,7 +62,11 @@ rustup target add wasm32-unknown-unknown
 if cargo leptos --version 2>/dev/null | grep -qF "$CARGO_LEPTOS_VERSION"; then
     ok "cargo-leptos $CARGO_LEPTOS_VERSION már megvan."
 else
-    cargo install cargo-leptos --version "$CARGO_LEPTOS_VERSION" --locked
+    # Built on disk: cargo install would use /tmp, which Debian 13 keeps in memory (half the RAM),
+    # and this build needs more than that.
+    build_dir="$HOME/.cache/cargo-leptos-build"
+    cargo install cargo-leptos --version "$CARGO_LEPTOS_VERSION" --locked --target-dir "$build_dir"
+    rm -rf "$build_dir"
 fi
 
 step "Szolgáltatás és beállítások"
