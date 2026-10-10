@@ -135,7 +135,7 @@ impl PageCache {
             .await
             .map_err(|err| leptos::logging::error!("page cache: {path} failed to render: {err}"))
             .ok()?;
-        let html = strip_nonces(html);
+        let html = purge_css(strip_nonces(html));
         if let Some(previous) = previous.filter(|p| p.identity == html) {
             return Some(previous.clone());
         }
@@ -202,6 +202,40 @@ fn get(path: &str) -> Request {
 
 async fn body(response: Response) -> Result<Bytes, axum::Error> {
     to_bytes(response.into_body(), usize::MAX).await
+}
+
+/// The page with its inline stylesheet trimmed to the rules it can use (see `crate::purge`).
+fn purge_css(html: Bytes) -> Bytes {
+    match std::str::from_utf8(&html).ok().and_then(crate::purge::purge_inline_css) {
+        Some(purged) => Bytes::from(purged),
+        None => html,
+    }
+}
+
+/// Middleware: trims the inline stylesheet of pages rendered per request (the photo pages) to
+/// the rules they use. Cached pages are trimmed once, when they are rendered; responses that are
+/// already compressed (cached pages, the 404 page) pass through untouched.
+pub async fn purge_page_css(req: Request, next: Next) -> Response {
+    let response = next.run(req).await;
+    let is_html = response
+        .headers()
+        .get(CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.starts_with("text/html"));
+    if !is_html || response.headers().contains_key(CONTENT_ENCODING) {
+        return response;
+    }
+    let (mut parts, body) = response.into_parts();
+    match to_bytes(body, usize::MAX).await {
+        Ok(html) => {
+            parts.headers.remove(CONTENT_LENGTH);
+            Response::from_parts(parts, Body::from(purge_css(html)))
+        }
+        Err(err) => {
+            leptos::logging::error!("purge css: cannot read the page: {err}");
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    }
 }
 
 /// leptos_axum gives every render a random CSP nonce (`<script nonce="…">` on its streaming

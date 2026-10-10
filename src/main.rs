@@ -15,7 +15,7 @@ async fn main() {
         calendar::Feed,
         drive::Library,
         server::{
-            cache_control, redirects, serve_cached, serve_not_found, shutdown_signal,
+            cache_control, purge_page_css, redirects, serve_cached, serve_not_found, shutdown_signal,
             spawn_calendar_refresh, spawn_drive_refresh, CachePolicy, PageCache,
         },
     };
@@ -90,6 +90,8 @@ async fn main() {
         // nest_service strips "/drive": the cache directory holds <album>/<file> directly.
         .nest_service("/drive", drive)
         .fallback_service(files)
+        // Innermost: pages rendered per request get their CSS trimmed (cached ones already are).
+        .layer(from_fn(purge_page_css))
         .layer(from_fn_with_state(cache, serve_cached))
         .layer(from_fn(redirects))
         .layer(from_fn_with_state(CachePolicy::new(&options), cache_control))

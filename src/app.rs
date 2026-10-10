@@ -52,6 +52,9 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
             <head>
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                // Title, description, canonical, Open Graph and image preloads: first, so the
+                // preload scanner sees the hero image before the inline stylesheet.
+                <MetaTags/>
                 <meta name="theme-color" content="#0a0c0f"/>
                 <link rel="icon" href="/favicon.ico" sizes="32x32"/>
                 <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
@@ -63,7 +66,6 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                 <script inner_html=CLOSE_MENU_ON_LEAVE></script>
                 <AutoReload options=options.clone()/>
                 {islands.then(|| view! { <HydrationScripts options islands=true/> })}
-                <MetaTags/>
             </head>
             <body>
                 <App/>

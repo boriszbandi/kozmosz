@@ -1,6 +1,7 @@
 //! Responsive images (AVIF with JPEG fallback) and inline icons.
 
 use leptos::prelude::*;
+use leptos_meta::Link;
 
 use crate::{content::ImageRef, images};
 
@@ -86,7 +87,26 @@ pub fn Responsive(
     #[prop(optional_no_strip)] class: Option<String>,
     #[prop(optional_no_strip)] art: Option<(&'static str, Img, &'static str)>,
 ) -> impl IntoView {
+    let priority = high.unwrap_or(eager);
+    // A high-priority image is the page's largest one above the fold: it is announced in <head>,
+    // so its download starts before the parser reaches the <img>. AVIF only, like the <source>
+    // every current browser picks; with art direction one link per media query.
+    let preload = priority.then(|| match &art {
+        Some((media, i, art_sizes)) => view! {
+            <Link rel="preload" as_="image" type_="image/avif" fetchpriority="high"
+                media=*media imagesrcset=i.srcset("avif") imagesizes=*art_sizes/>
+            <Link rel="preload" as_="image" type_="image/avif" fetchpriority="high"
+                media=format!("not all and {media}") imagesrcset=img.srcset("avif") imagesizes=sizes.clone()/>
+        }
+        .into_any(),
+        None => view! {
+            <Link rel="preload" as_="image" type_="image/avif" fetchpriority="high"
+                imagesrcset=img.srcset("avif") imagesizes=sizes.clone()/>
+        }
+        .into_any(),
+    });
     view! {
+        {preload}
         <picture class=class>
             {art.map(|(media, i, art_sizes)| view! {
                 <source media=media type="image/avif" srcset=i.srcset("avif") sizes=art_sizes/>
@@ -101,7 +121,7 @@ pub fn Responsive(
                 height=img.height.to_string()
                 alt=alt
                 loading=if eager { "eager" } else { "lazy" }
-                fetchpriority=high.unwrap_or(eager).then_some("high")
+                fetchpriority=priority.then_some("high")
                 decoding="async"
             />
         </picture>
