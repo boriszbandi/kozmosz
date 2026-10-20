@@ -13,6 +13,7 @@ async fn main() {
     };
     use kozmosz::{
         admin::{self, Admin},
+        attendance,
         app::{shell, App, STATIC_PAGES},
         calendar::Feed,
         drive::Library,
@@ -75,6 +76,11 @@ async fn main() {
         .route("/belepes/discord", get(admin::callback))
         .route("/kilepes", post(admin::logout))
         .with_state(admins.clone());
+    // Attendance sheets: names arrive by POST; the CSV is under /admin, so behind admin::guard.
+    attendance::spawn_members_refresh();
+    let sheets = Router::new()
+        .route("/jelen/{token}", post(attendance::sign))
+        .route("/admin/jelenlet/{key}/csv", get(attendance::csv));
 
     // Static files: precompressed .br/.gz when cargo-leptos made them (--precompress), except
     // /img and /fonts, whose formats are already compressed. Anything else gets the cached 404 page.
@@ -96,6 +102,7 @@ async fn main() {
     let app = Router::new()
         .merge(pages)
         .merge(sign_in)
+        .merge(sheets)
         .route_service("/img/{*path}", images.clone())
         .route_service("/fonts/{*path}", images)
         // nest_service strips "/drive": the cache directory holds <album>/<file> directly.

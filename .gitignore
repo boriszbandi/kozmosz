@@ -12,3 +12,6 @@ __pycache__/
 
 # Drive gallery cache (KOZMOSZ_DRIVE_DIR): encoded photos + manifest, rebuilt from Drive
 /drive-cache
+
+# Attendance sheets of local runs (the server keeps them in its state directory)
+/jelenlet

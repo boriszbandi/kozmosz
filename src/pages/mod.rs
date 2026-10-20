@@ -9,7 +9,9 @@ mod programs;
 mod projects;
 
 pub use about::About;
-pub use admin::{AdminPage, SignInRefused};
+pub use admin::{AdminEvent, AdminLinks, AdminPage, CheckIn, SignInRefused};
+#[cfg(feature = "ssr")]
+pub use admin::{AdminLayout, Section};
 pub use contact::Contact;
 pub use home::Home;
 pub use lecturers::Lecturers;
@@ -55,7 +57,7 @@ fn Blocks(blocks: &'static [Block]) -> impl IntoView {
 
 /// Page heading area shared by inner pages: optional parent link, title, then any children.
 #[component]
-fn PageHeader(
+pub(crate) fn PageHeader(
     #[prop(into)] title: String,
     /// Parent page link shown above the title, e.g. ("Projektek", "/projektek").
     #[prop(optional)]

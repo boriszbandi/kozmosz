@@ -44,6 +44,8 @@ ravif = { version = "0.13.0", default-features = false, features = ["threading"]
 # Service-account sign-in (RS256 JWT). Already in the tree as the rustls crypto provider.
 aws-lc-rs = { version = "1.18.1", optional = true }
 base64 = { version = "0.23.1", optional = true }
+# QR codes of the attendance sheets, drawn as SVG (no image dependencies).
+qrcode = { version = "0.14.1", default-features = false, features = ["svg"], optional = true }
 
 # client-only (hydrate)
 wasm-bindgen = { version = "0.2.129", optional = true }
@@ -74,6 +76,7 @@ ssr = [
     "dep:ravif",
     "dep:aws-lc-rs",
     "dep:base64",
+    "dep:qrcode",
     "leptos/ssr",
     "leptos_meta/ssr",
     "leptos_router/ssr",

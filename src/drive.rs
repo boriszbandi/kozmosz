@@ -27,6 +27,12 @@ mod tests;
 
 #[cfg(feature = "ssr")]
 pub use library::{Library, REFRESH_EVERY};
+/// The service account also reads the membership sheet (src/attendance.rs).
+#[cfg(feature = "ssr")]
+pub(crate) use {
+    auth::ServiceAccount,
+    library::{write_atomic, ENV_CREDENTIALS},
+};
 
 /// A Drive folder shown as the gallery of a project page.
 pub struct Album {

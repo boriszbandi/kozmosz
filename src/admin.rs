@@ -14,7 +14,7 @@
 
 use std::{
     path::PathBuf,
-    sync::Arc,
+    sync::{Arc, OnceLock},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -54,9 +54,10 @@ const KEY_FILE: &str = "admin.key";
 
 pub struct Admin {
     secret: Option<String>,
-    key: hmac::Key,
     client: reqwest::Client,
 }
+
+static KEY: OnceLock<hmac::Key> = OnceLock::new();
 
 #[derive(Deserialize)]
 struct Token {
@@ -88,18 +89,17 @@ impl Admin {
         if secret.is_none() {
             log!("admin: sign-in is off until {ENV_SECRET} is set");
         }
-        let key = session_key();
         let client = reqwest::Client::builder()
             .user_agent(format!("kozmosz-site/{} (+{})", env!("CARGO_PKG_VERSION"), site::ORIGIN))
             .https_only(true)
             .timeout(Duration::from_secs(15))
             .build()
             .expect("HTTP client");
-        Arc::new(Self { secret, key: hmac::Key::new(hmac::HMAC_SHA256, &key), client })
+        Arc::new(Self { secret, client })
     }
 
     fn signed_in(&self, headers: &HeaderMap) -> bool {
-        cookie(headers, SESSION).is_some_and(|value| verify(&self.key, value, now()))
+        cookie(headers, SESSION).is_some_and(|value| verify(key(), value, now()))
     }
 
     /// Trades Discord's one-time code for the user, if they may sign in; else says why not.
@@ -183,7 +183,7 @@ pub async fn callback(
             let expires = now() + SESSION_FOR.as_secs();
             let session = format!(
                 "{SESSION}={}; Path=/; Max-Age={}; HttpOnly; Secure; SameSite=Lax",
-                sign(&admin.key, &me.id, expires),
+                sign(key(), &me.id, expires),
                 SESSION_FOR.as_secs(),
             );
             redirect("/admin", &[forget_state, session])
@@ -200,10 +200,11 @@ pub async fn logout() -> Response {
     redirect("/", &[format!("{SESSION}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax")])
 }
 
-/// Middleware: /admin only for signed-in admins (others go to /belepes), and never stored in a
-/// cache.
+/// Middleware: /admin and everything under it only for signed-in admins (others go to
+/// /belepes), and never stored in a cache.
 pub async fn guard(State(admin): State<Arc<Admin>>, req: Request, next: Next) -> Response {
-    if req.uri().path() != "/admin" {
+    let path = req.uri().path();
+    if path != "/admin" && !path.starts_with("/admin/") {
         return next.run(req).await;
     }
     if !admin.signed_in(req.headers()) {
@@ -226,9 +227,19 @@ fn redirect(to: &str, cookies: &[String]) -> Response {
     response
 }
 
-/// The key that signs sessions, kept in the state directory that systemd names in
-/// STATE_DIRECTORY (private to the service). Without one (a local run): a new key every start.
-fn session_key() -> [u8; 32] {
+/// The server's signing key: sessions, and the attendance sheets' QR links
+/// (src/attendance.rs). Kept in the state directory that systemd names in STATE_DIRECTORY
+/// (private to the service); without one (a local run), a new key every start.
+fn key() -> &'static hmac::Key {
+    KEY.get_or_init(|| hmac::Key::new(hmac::HMAC_SHA256, &load_key()))
+}
+
+/// A short, unguessable tag of `message` (22 characters, URL-safe).
+pub fn tag(message: &str) -> String {
+    URL_SAFE_NO_PAD.encode(&hmac::sign(key(), message.as_bytes()).as_ref()[..16])
+}
+
+fn load_key() -> [u8; 32] {
     let path = std::env::var_os("STATE_DIRECTORY").map(|dir| PathBuf::from(dir).join(KEY_FILE));
     let kept = path.as_ref().and_then(|p| std::fs::read(p).ok()).and_then(|bytes| <[u8; 32]>::try_from(bytes).ok());
     if let Some(key) = kept {

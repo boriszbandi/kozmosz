@@ -34,7 +34,7 @@ const FILES: &str = "files";
 
 /// Environment variables (all optional).
 const ENV_DIR: &str = "KOZMOSZ_DRIVE_DIR";
-const ENV_CREDENTIALS: &str = "KOZMOSZ_DRIVE_CREDENTIALS";
+pub(crate) const ENV_CREDENTIALS: &str = "KOZMOSZ_DRIVE_CREDENTIALS";
 const ENV_API_KEY: &str = "KOZMOSZ_DRIVE_API_KEY";
 const ENV_SWITCH: &str = "KOZMOSZ_DRIVE";
 
@@ -382,7 +382,7 @@ fn unique_slug(name: &str, id: &str, taken: &HashSet<String>) -> String {
 
 /// Writes through a temporary file and a rename, so a crash never leaves half a file behind
 /// under the real name.
-fn write_atomic(path: &Path, data: &[u8]) -> Result<(), String> {
+pub(crate) fn write_atomic(path: &Path, data: &[u8]) -> Result<(), String> {
     let mut tmp = path.as_os_str().to_owned();
     tmp.push(".tmp");
     let tmp = PathBuf::from(tmp);

@@ -62,13 +62,20 @@ Top priority: fastest possible load. These rules override any design skill or DE
   names carry a content hash), `manifest.json` next to `files/` and never served (Drive IDs).
   `src/gallery.rs` builds each project gallery from the album, or from the Markdown images until the
   album has photos. Photo pages: `/projektek/<project>/kep/<slug>` and `/rolunk/kep/<slug>`
-  (`src/pages/photo.rs`), rendered per request; every gallery tile opens one, never a bare image file. Browsers never contact Google. Credentials (service-account key, API key) come from
-  the environment only; never commit them.
+  (`src/pages/photo.rs`), rendered per request; every gallery tile opens one, never a bare image
+  file. Browsers never contact Google. Credentials (service-account key, API key) come from the
+  environment only; never commit them.
 - Admin: `src/admin.rs`, Discord OAuth2 sign-in (scopes `identify guilds.members.read`; admin role
   on the club's server and Discord 2FA required; no passwords, no bot token on this server),
   started from the footer icon (/belepes), a signed 30-day session cookie whose key is in the
-  state directory. /admin (`src/pages/admin.rs`) shows /etc/kozmosz/admin.md and is reachable
-  only through `admin::guard`. The client secret comes from `KOZMOSZ_DISCORD_SECRET` only.
+  state directory. Everything under /admin is reachable only through `admin::guard`; the
+  client secret comes from `KOZMOSZ_DISCORD_SECRET` only. The dashboard (`src/pages/admin.rs`,
+  sidebar layout) holds the attendance sheets and, if /etc/kozmosz/admin.md exists, a links page.
+- Attendance sheets: `src/attendance.rs` (server only). Every calendar event has a sheet; its QR
+  link /jelen/<token> carries `admin::tag` of the event, opens an hour before and closes three
+  hours after it. Names are validated, de-duplicated and kept in `jelenlet/<event>.json` in the
+  state directory, then matched to the membership Google Sheet (`MEMBERS_SHEET`, read with the
+  Drive service account through the Sheets API). Matching never guesses: one member or none.
 - UI text is Hungarian. Code, comments and identifiers are English.
 
 ## Commands

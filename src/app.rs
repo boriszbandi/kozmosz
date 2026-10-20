@@ -8,7 +8,8 @@ use leptos_router::{
 use crate::{
     layout::{Footer, Header},
     pages::{
-        About, AdminPage, Contact, Home, Lecturers, NotFound, PhotoPage, Programs, Project, Projects, SignInRefused,
+        About, AdminEvent, AdminLinks, AdminPage, CheckIn, Contact, Home, Lecturers, NotFound, PhotoPage, Programs, Project,
+        Projects, SignInRefused,
     },
     site,
 };
@@ -146,6 +147,10 @@ pub fn App() -> impl IntoView {
                     <Route path=path!("/rolunk/kep/:slug") view=|| view! { <PhotoPage page="rolunk"/> }/>
                     // Admins only: the sign-in itself is plain axum (src/admin.rs).
                     <Route path=path!("/admin") view=AdminPage/>
+                    <Route path=path!("/admin/jelenlet/:key") view=AdminEvent/>
+                    <Route path=path!("/admin/linkek") view=AdminLinks/>
+                    // Behind an event's QR code: the attendance sheet (src/attendance.rs).
+                    <Route path=path!("/jelen/:token") view=CheckIn/>
                     <Route path=path!("/belepes/hiba") view=SignInRefused/>
                 </Routes>
             </main>

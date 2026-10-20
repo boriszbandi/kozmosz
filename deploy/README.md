@@ -81,7 +81,14 @@ A szolgáltatás egy ideiglenes, jogok nélküli felhasználóként fut. Csak a 
 
 ## Drive service account
 
-Ha a Drive-mappákat privátan szeretnétek tartani (a fő README „Drive-galériák” része írja le, miért ez a javasolt mód), a service account JSON-kulcsát így add a szervernek:
+A service account a Google-fiókotok egy „robotfelhasználója”. Ezzel olvassa a szerver a tagsági táblázatot (a jelenléti ívekhez), és ha akarjátok, privát Drive-mappákat is. Létrehozása:
+
+1. [Google Cloud Console](https://console.cloud.google.com/): új projekt (vagy egy meglévő), majd az „APIs & Services” alatt kapcsold be a **Google Drive API**-t és a **Google Sheets API**-t.
+2. „IAM & Admin” → „Service Accounts” → „Create service account”. Jogosultság nem kell neki. Utána a „Keys” fülön „Add key” → „JSON”: letöltődik a kulcsfájl.
+3. Oszd meg (Megtekintő) a service account e-mail-címével (`…@….iam.gserviceaccount.com`) a **tagsági táblázatot** és a **három fotós Drive-mappát** is. Kulcs birtokában a szerver a mappákat is ezen keresztül olvassa.
+4. A táblázat azonosítója (az URL hosszú része a `/d/` után) a `src/attendance.rs` `MEMBERS_SHEET` állandójába kerül. A neveket a „Név”, „Teljes név” vagy „Name” fejlécű oszlopból veszi, ha ilyen nincs, az első oszlopból.
+
+A kulcsot így add a szervernek:
 
 ```bash
 sudo install -m 600 drive-key.json /etc/kozmosz/drive-key.json
