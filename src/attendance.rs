@@ -21,9 +21,10 @@ use std::{
 use aws_lc_rs::constant_time;
 use axum::{
     extract::{Form, Path},
-    http::{header, StatusCode},
+    http::{header, request::Parts, HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Redirect, Response},
 };
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use jiff::{tz::TimeZone, Timestamp};
 use leptos::{
     logging::{error, log},
@@ -52,6 +53,14 @@ const CLOSES_AFTER: i64 = 3 * 60 * 60;
 /// More names than any event has: a sheet whose link leaked cannot grow without end.
 const MAX_NAMES: usize = 500;
 const REFRESH_EVERY: Duration = Duration::from_secs(10 * 60);
+/// The cookie that keeps a signed name's "Kitöltve" ticket on that phone.
+const TICKET: &str = "kozmosz_jelen";
+
+/// The "Kitöltve" ticket's picture (owner's request 2026-10-20, like a transit app's live
+/// ticket): a planet with a moon in orbit, a pulse and twinkling stars, in the site's yellow and
+/// white. It keeps moving, so the real page can be told from a screenshot (style/main.css,
+/// "Ticket"); the moon moves by SMIL, everything else by CSS.
+const LIFTOFF: &str = r#"<svg viewBox="0 0 240 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g transform="translate(36 44)"><path class="lift-star" d="M0-9C1-3 3-1 9 0C3 1 1 3 0 9C-1 3-3 1-9 0C-3-1-1-3 0-9Z"/></g><g transform="translate(206 38) scale(.7)"><path class="lift-star" style="--d:.7s" d="M0-9C1-3 3-1 9 0C3 1 1 3 0 9C-1 3-3 1-9 0C-3-1-1-3 0-9Z"/></g><g transform="translate(22 156) scale(.6)"><path class="lift-star" style="--d:1.4s" d="M0-9C1-3 3-1 9 0C3 1 1 3 0 9C-1 3-3 1-9 0C-3-1-1-3 0-9Z"/></g><g transform="translate(214 160) scale(.85)"><path class="lift-star" style="--d:.35s" d="M0-9C1-3 3-1 9 0C3 1 1 3 0 9C-1 3-3 1-9 0C-3-1-1-3 0-9Z"/></g><g transform="translate(124 14) scale(.5)"><path class="lift-star" style="--d:1.05s" d="M0-9C1-3 3-1 9 0C3 1 1 3 0 9C-1 3-3 1-9 0C-3-1-1-3 0-9Z"/></g><circle class="lift-pulse" cx="120" cy="100" r="26"/><circle class="lift-pulse" style="--d:1.2s" cx="120" cy="100" r="26"/><g transform="rotate(-16 120 100)"><ellipse class="lift-orbit" cx="120" cy="100" rx="90" ry="34"/><g class="lift-moon"><circle r="6"><animateMotion dur="6s" repeatCount="indefinite" path="M210,100A90,34 0 1 1 30,100A90,34 0 1 1 210,100"/></circle></g><circle class="lift-moon-still" cx="210" cy="100" r="6"/></g><circle class="lift-planet" cx="120" cy="100" r="26"/><path class="lift-check" d="M108 101l8 8 16-18"/></svg>"#;
 
 #[derive(Serialize, Deserialize)]
 struct Sheet {
@@ -112,6 +121,24 @@ fn valid_key(key: &str) -> bool {
 
 fn token(key: &str) -> String {
     admin::tag(&format!("jelenlet:{key}"))
+}
+
+/// The cookie value of a ticket: the name and the time it was signed, tagged for the event, so
+/// it cannot be made up for another name, time or event.
+fn ticket_value(key: &str, name: &str, at: i64) -> String {
+    let tag = admin::tag(&format!("jelen-ok:{key}:{at}:{name}"));
+    format!("{}.{at}.{tag}", URL_SAFE_NO_PAD.encode(name))
+}
+
+/// The name and time on this phone's ticket for the event, if it checks out.
+fn ticket(headers: &HeaderMap, key: &str) -> Option<(String, i64)> {
+    let mut parts = admin::cookie(headers, TICKET)?.splitn(3, '.');
+    let name = String::from_utf8(URL_SAFE_NO_PAD.decode(parts.next()?).ok()?).ok()?;
+    let at: i64 = parts.next()?.parse().ok()?;
+    let tag = parts.next()?;
+    let expected = ticket_value(key, &name, at);
+    let ok = constant_time::verify_slices_are_equal(expected.rsplit('.').next()?.as_bytes(), tag.as_bytes()).is_ok();
+    ok.then_some((name, at))
 }
 
 /// The calendar event whose sheet the token `given` opens.
@@ -330,7 +357,8 @@ pub fn spawn_members_refresh() {
     });
 }
 
-/// POST /jelen/{token}: puts the name on the sheet, then back to the page, which thanks.
+/// POST /jelen/{token}: puts the name on the sheet, gives this phone its ticket (a cookie for
+/// the page), then back to the page, which shows the ticket.
 pub async fn sign(Path(given): Path<String>, Form(form): Form<Signature>) -> Response {
     let Some(event) = find(&given) else { return StatusCode::NOT_FOUND.into_response() };
     // `given` is a token we made: safe in a header.
@@ -341,7 +369,16 @@ pub async fn sign(Path(given): Path<String>, Form(form): Form<Signature>) -> Res
     }
     let Some(name) = clean_name(&form.nev) else { return Redirect::to(&format!("{page}?hiba=nev")).into_response() };
     match record(&dir(), &event, &name, now) {
-        Ok(()) => Redirect::to(&format!("{page}?kesz=1")).into_response(),
+        Ok(()) => {
+            let mut response = Redirect::to(&page).into_response();
+            let cookie = format!(
+                "{TICKET}={}; Path={page}; Max-Age=43200; HttpOnly; Secure; SameSite=Lax",
+                ticket_value(&key(&event), &name, now),
+            );
+            // Base64, digits and the token: always a valid header.
+            response.headers_mut().append(header::SET_COOKIE, HeaderValue::from_str(&cookie).expect("ASCII cookie"));
+            response
+        }
         Err(err) => {
             error!("attendance: {err}");
             Redirect::to(&format!("{page}?hiba=mentes")).into_response()
@@ -519,17 +556,27 @@ pub fn event_page(key: &str) -> AnyView {
     .into_any()
 }
 
-/// /jelen/<token>: the form behind the QR code. `done` after a name went on the sheet, `problem`
-/// after a refused one ("nev": not a name, "mentes": could not save).
-pub fn check_in_page(given: &str, done: bool, problem: Option<&str>) -> AnyView {
+/// /jelen/<token>: the form behind the QR code, or this phone's ticket once its name is on the
+/// sheet. `problem` after a refused name ("nev": not a name, "mentes": could not save).
+pub fn check_in_page(given: &str, problem: Option<&str>) -> AnyView {
     let Some(event) = find(given) else { return view! { <NotFound/> }.into_any() };
     let open = is_open(&event, now());
+    let headers = use_context::<Parts>().map(|parts| parts.headers).unwrap_or_default();
+    let ticket = ticket(&headers, &key(&event));
     let problem = problem.map(|p| match p {
         "nev" => "Írd be a teljes neved: legalább 2, legfeljebb 60 betű.",
         _ => "Most nem sikerült elmenteni, próbáld újra.",
     });
-    let body = if done {
-        view! { <p class="checkin-done">"Köszönjük, rajta vagy a jelenléti íven!"</p> }.into_any()
+    let body = if let Some((name, at)) = ticket {
+        view! {
+            <div class="ticket" role="status">
+                <div class="liftoff" inner_html=LIFTOFF></div>
+                <p class="ticket-ok">"Kitöltve"</p>
+                <p class="ticket-name">{name}</p>
+                <p class="ticket-meta">{event.title.clone()} " · " <span class="mono">{clock(at)}</span></p>
+            </div>
+        }
+        .into_any()
     } else if !open {
         view! { <p class="empty-note">"Ez a jelenléti ív most nincs nyitva."</p> }.into_any()
     } else {
@@ -620,6 +667,23 @@ mod tests {
         let rows = |header: &str| vec![vec!["E-mail".into(), header.into()], vec!["a@b.hu".into(), " Kovács Anna ".into()], vec!["c@d.hu".into(), String::new()]];
         assert_eq!(names(&rows("Teljes név")), ["Kovács Anna"]);
         assert_eq!(names(&rows("Valami")), ["a@b.hu", "c@d.hu"], "no name header: the first column");
+    }
+
+    #[test]
+    fn tickets_cannot_be_made_up() {
+        let key = "2026-10-21-1800-teszt";
+        let cookie = |value: &str| {
+            let mut headers = HeaderMap::new();
+            headers.insert(header::COOKIE, HeaderValue::from_str(&format!("{TICKET}={value}")).unwrap());
+            headers
+        };
+        let value = ticket_value(key, "Kovács Anna", 1000);
+        assert_eq!(ticket(&cookie(&value), key), Some(("Kovács Anna".into(), 1000)));
+        assert_eq!(ticket(&cookie(&value), "2026-10-22-1800-masik"), None, "another event");
+        let other = ticket_value(key, "Kiss Péter", 1000);
+        let forged = format!("{}.{}", other.split('.').next().unwrap(), value.split_once('.').unwrap().1);
+        assert_eq!(ticket(&cookie(&forged), key), None, "another name");
+        assert_eq!(ticket(&HeaderMap::new(), key), None);
     }
 
     #[test]

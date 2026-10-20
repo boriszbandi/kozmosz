@@ -9,11 +9,20 @@ use leptos_router::hooks::{use_params_map, use_query_map};
 use pulldown_cmark::{html, Parser};
 
 use super::PageHeader;
+use crate::{icons, media::Icon};
 
 /// Text of the links section: Markdown in /etc/kozmosz/admin.md on the server, read on every
 /// request (an edit shows at once) and kept out of the public repository. Without the file the
 /// section is not shown.
 const LINKS: &str = "/etc/kozmosz/admin.md";
+
+/// The club's planning tools, at the top of the sidebar (opened in a new tab). None: not set up
+/// yet, shown greyed out.
+const TOOLS: [(&str, &str, Option<&str>); 3] = [
+    ("Jira", icons::KANBAN, None),
+    ("Teendők", icons::LIST_CHECKS, None),
+    ("Gantt", icons::CHART_BAR_HORIZONTAL, None),
+];
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Section {
@@ -21,7 +30,7 @@ pub enum Section {
     Links,
 }
 
-/// The dashboard frame: sections and sign-out in the sidebar, the page beside it.
+/// The dashboard frame: the tools, the sections and sign-out in the sidebar, the page beside it.
 #[component]
 pub fn AdminLayout(#[prop(into)] title: String, section: Section, children: Children) -> impl IntoView {
     let current = |s: Section| (s == section).then_some("page");
@@ -30,14 +39,46 @@ pub fn AdminLayout(#[prop(into)] title: String, section: Section, children: Chil
         <Meta name="robots" content="noindex"/>
         <div class="container admin">
             <aside class="admin-side">
-                <nav class="admin-nav" aria-label="Admin">
-                    <a href="/admin" aria-current=current(Section::Sheets)>"Jelenléti ívek"</a>
+                <div class="admin-tools">
+                    {TOOLS
+                        .into_iter()
+                        .map(|(label, icon, url)| match url {
+                            Some(url) => view! {
+                                <a class="admin-tool" href=url target="_blank" rel="noopener">
+                                    <Icon svg=icon/>
+                                    {label}
+                                </a>
+                            }
+                            .into_any(),
+                            None => view! {
+                                <span class="admin-tool" title="Még nincs beállítva">
+                                    <Icon svg=icon/>
+                                    {label}
+                                    <span class="visually-hidden">" (még nincs beállítva)"</span>
+                                </span>
+                            }
+                            .into_any(),
+                        })
+                        .collect_view()}
+                </div>
+                <p class="admin-category" id="adminisztracio">"Adminisztráció"</p>
+                <nav class="admin-nav" aria-labelledby="adminisztracio">
+                    <a href="/admin" aria-current=current(Section::Sheets)>
+                        <Icon svg=icons::QR_CODE/>
+                        "Jelenléti ívek"
+                    </a>
                     {std::fs::metadata(LINKS).is_ok().then(|| view! {
-                        <a href="/admin/linkek" aria-current=current(Section::Links)>"Linkek"</a>
+                        <a href="/admin/linkek" aria-current=current(Section::Links)>
+                            <Icon svg=icons::LINK_SIMPLE/>
+                            "Linkek"
+                        </a>
                     })}
                 </nav>
                 <form method="post" action="/kilepes">
-                    <button class="button button-line" type="submit">"Kilépés"</button>
+                    <button class="admin-signout" type="submit">
+                        <Icon svg=icons::SIGN_OUT/>
+                        "Kilépés"
+                    </button>
                 </form>
             </aside>
             <div class="admin-main">
@@ -74,8 +115,8 @@ pub fn CheckIn() -> impl IntoView {
     #[cfg(feature = "ssr")]
     let page = {
         let token = use_params_map().with_untracked(|p| p.get("token").unwrap_or_default());
-        let (done, problem) = use_query_map().with_untracked(|q| (q.get("kesz").is_some(), q.get("hiba")));
-        crate::attendance::check_in_page(&token, done, problem.as_deref())
+        let problem = use_query_map().with_untracked(|q| q.get("hiba"));
+        crate::attendance::check_in_page(&token, problem.as_deref())
     };
     #[cfg(not(feature = "ssr"))]
     let page = ();

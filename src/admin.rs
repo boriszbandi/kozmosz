@@ -284,7 +284,7 @@ fn verify(key: &hmac::Key, value: &str, now: u64) -> bool {
 }
 
 /// The value of cookie `name` (a browser may send them in several Cookie headers).
-fn cookie<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
+pub fn cookie<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
     headers
         .get_all(COOKIE)
         .iter()

@@ -48,6 +48,8 @@
   --signal-hover: #ffe89a;
   --signal-ink: #0a0c0f;
   --signal-wash: rgb(255 222 115 / 0.07);
+  /* Success, used only for the attendance ticket's "Kitöltve" (owner's request). */
+  --ok: #4ade80;
 
   --font-heading: "Urbanist", "Urbanist Fallback", system-ui, sans-serif;
   --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
@@ -2594,10 +2596,53 @@ body:has(.contact) .footer-contact {
 
 .admin-side {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   gap: var(--s2);
+}
+
+/* The planning tools: three glass tiles, icon over label. */
+.admin-tools {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  max-width: 320px;
+}
+
+.admin-tool {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  padding: 12px 4px 10px;
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.08), rgb(255 255 255 / 0.02)), rgb(255 255 255 / 0.03);
+  box-shadow: inset 0 1px 0.5px rgb(255 255 255 / 0.25), inset 0 0 0 1px rgb(255 255 255 / 0.08);
+  color: var(--heading);
+  font: 600 var(--fs-xs)/1.1 var(--font-heading);
+  text-decoration: none;
+}
+
+a.admin-tool:hover {
+  box-shadow: inset 0 1px 0.5px rgb(255 255 255 / 0.35), inset 0 0 0 1px rgb(255 222 115 / 0.55);
+  color: var(--signal);
+}
+
+/* Not set up yet. */
+span.admin-tool {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.admin-tool .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.admin-category {
+  margin: var(--s1) 0 -8px;
+  padding-inline: 14px;
+  color: var(--muted);
+  font: 700 var(--fs-xs)/1.2 var(--font-heading);
+  letter-spacing: 0.04em;
 }
 
 .admin-nav {
@@ -2606,12 +2651,43 @@ body:has(.contact) .footer-contact {
   gap: 6px;
 }
 
-.admin-nav a {
+.admin-nav a,
+.admin-signout {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 10px 14px;
   border-radius: var(--radius);
   color: var(--text);
   font: 600 var(--fs-sm)/1.2 var(--font-heading);
   text-decoration: none;
+}
+
+.admin-nav .icon,
+.admin-signout .icon {
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+}
+
+.admin-nav a[aria-current] .icon {
+  color: var(--signal);
+}
+
+.admin-signout {
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.admin-signout:hover {
+  background: rgb(255 255 255 / 0.05);
+  color: var(--heading);
+}
+
+.admin-signout:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
 }
 
 .admin-nav a:hover {
@@ -2814,9 +2890,141 @@ body:has(.contact) .footer-contact {
   font-size: var(--fs-sm);
 }
 
-.checkin-done {
+/* Ticket: what a phone shows once its name is on the sheet (owner's request 2026-10-20, like a
+   transit app's live ticket). A planet with its moon in orbit, a pulse and twinkling stars, in
+   the site's yellow and white; it keeps moving, so the real page can be told from a screenshot.
+   Without motion it stands still, the moon parked on its orbit. */
+.ticket {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.liftoff svg {
+  display: block;
+  width: min(280px, 80vw);
+  height: auto;
+  overflow: visible;
+}
+
+.lift-planet,
+.lift-star {
+  fill: var(--signal);
+}
+
+.lift-orbit {
+  fill: none;
+  stroke: var(--heading);
+  stroke-opacity: 0.35;
+  stroke-width: 1.5;
+}
+
+.lift-moon circle,
+.lift-moon-still {
+  fill: var(--heading);
+}
+
+.lift-moon-still {
+  display: none;
+}
+
+.lift-check {
+  fill: none;
+  stroke: var(--bg);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.lift-pulse {
+  fill: none;
+  stroke: var(--signal);
+  stroke-width: 2;
+  opacity: 0;
+}
+
+.lift-pulse,
+.lift-star {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.ticket-ok {
+  margin: var(--s2) 0 0;
+  color: var(--ok);
+  font: 800 var(--fs-h2)/1 var(--font-heading);
+  letter-spacing: -0.02em;
+}
+
+.ticket-name {
+  margin: 0;
   color: var(--heading);
-  font: 700 var(--fs-h3)/1.3 var(--font-heading);
+  font: 700 var(--fs-h3)/1.25 var(--font-heading);
+}
+
+.ticket-meta {
+  margin: 0;
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .lift-pulse {
+    animation: lift-pulse 2.4s var(--ease) var(--d, 0s) infinite;
+  }
+
+  .lift-star {
+    animation: lift-twinkle 2.2s ease-in-out var(--d, 0s) infinite alternate;
+  }
+
+  .lift-check {
+    stroke-dasharray: 40;
+    animation: lift-check 0.6s var(--ease) 0.2s both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lift-moon {
+    display: none;
+  }
+
+  .lift-moon-still {
+    display: inline;
+  }
+}
+
+@keyframes lift-pulse {
+  from {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(2.4);
+  }
+}
+
+@keyframes lift-twinkle {
+  from {
+    opacity: 0.35;
+    transform: scale(0.6);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes lift-check {
+  from {
+    stroke-dashoffset: 40;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 
 @media (width >= 900px) {
@@ -2828,8 +3036,6 @@ body:has(.contact) .footer-contact {
   .admin-side {
     position: sticky;
     top: calc(var(--nav-h) + var(--s2));
-    flex-direction: column;
-    align-items: stretch;
   }
 
   .admin-nav {
