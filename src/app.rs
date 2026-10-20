@@ -37,9 +37,9 @@ const ISLAND_PAGES: &[&str] = &[];
 /// Prefetch same-origin page links on hover, prerender on pointerdown (Chromium; ignored
 /// elsewhere). On photo pages the previous and next photo pages are prefetched right away, and
 /// photo pages are prerendered on hover, so the tile-to-photo morph lands on a decoded image.
-/// Never fetched ahead: files under /img/ and /drive/, and /belepes, which starts a Discord
-/// sign-in.
-const SPECULATION_RULES: &str = r#"{"prefetch":[{"where":{"selector_matches":"a[rel=next], a[rel=prev]"},"eagerness":"eager"},{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/img/*","/drive/*","/belepes*"]}}]},"eagerness":"moderate"}],"prerender":[{"where":{"or":[{"href_matches":["/projektek/*/kep/*","/rolunk/kep/*"]},{"selector_matches":"a[rel=next], a[rel=prev]"}]},"eagerness":"moderate"},{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/img/*","/drive/*","/belepes*"]}}]},"eagerness":"conservative"}]}"#;
+/// Never fetched ahead: files under /img/ and /drive/, and /belepes and /jelen/, which start
+/// Discord sign-ins and set cookies.
+const SPECULATION_RULES: &str = r#"{"prefetch":[{"where":{"selector_matches":"a[rel=next], a[rel=prev]"},"eagerness":"eager"},{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/img/*","/drive/*","/belepes*","/jelen/*"]}}]},"eagerness":"moderate"}],"prerender":[{"where":{"or":[{"href_matches":["/projektek/*/kep/*","/rolunk/kep/*"]},{"selector_matches":"a[rel=next], a[rel=prev]"}]},"eagerness":"moderate"},{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/img/*","/drive/*","/belepes*","/jelen/*"]}}]},"eagerness":"conservative"}]}"#;
 
 /// The only script on every page (approved by the user 2026-10-08): the mobile menu is a
 /// <details>, and a page restored from the back/forward cache would come back with the menu still

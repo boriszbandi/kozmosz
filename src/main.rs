@@ -75,12 +75,15 @@ async fn main() {
         .route("/belepes", get(admin::login))
         .route("/belepes/discord", get(admin::callback))
         .route("/kilepes", post(admin::logout))
+        .route("/jelen/{token}/discord", get(attendance::discord))
         .with_state(admins.clone());
-    // Attendance sheets: names arrive by POST; the CSV is under /admin, so behind admin::guard.
+    // Attendance sheets: names arrive by POST (Discord check-ins through sign_in above); a sheet's
+    // CSV is under /admin, so behind admin::guard; all of them at a keyed URL for Google Sheets.
     attendance::spawn_members_refresh();
     let sheets = Router::new()
         .route("/jelen/{token}", post(attendance::sign))
-        .route("/admin/jelenlet/{key}/csv", get(attendance::csv));
+        .route("/admin/jelenlet/{key}/csv", get(attendance::csv))
+        .route("/jelenlet.csv", get(attendance::export));
 
     // Static files: precompressed .br/.gz when cargo-leptos made them (--precompress), except
     // /img and /fonts, whose formats are already compressed. Anything else gets the cached 404 page.

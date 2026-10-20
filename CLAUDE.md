@@ -66,16 +66,21 @@ Top priority: fastest possible load. These rules override any design skill or DE
   file. Browsers never contact Google. Credentials (service-account key, API key) come from the
   environment only; never commit them.
 - Admin: `src/admin.rs`, Discord OAuth2 sign-in (scopes `identify guilds.members.read`; admin role
-  on the club's server and Discord 2FA required; no passwords, no bot token on this server),
+  on the club's server required, no 2FA requirement (owner's call 2026-10-20); no passwords, no
+  bot token on this server),
   started from the footer icon (/belepes), a signed 30-day session cookie whose key is in the
   state directory. Everything under /admin is reachable only through `admin::guard`; the
   client secret comes from `KOZMOSZ_DISCORD_SECRET` only. The dashboard (`src/pages/admin.rs`,
   sidebar layout) holds the attendance sheets and, if /etc/kozmosz/admin.md exists, a links page.
 - Attendance sheets: `src/attendance.rs` (server only). Every calendar event has a sheet; its QR
   link /jelen/<token> carries `admin::tag` of the event, opens an hour before and closes three
-  hours after it. Names are validated, de-duplicated and kept in `jelenlet/<event>.json` in the
-  state directory, then matched to the membership Google Sheet (`MEMBERS_SHEET`, read with the
-  Drive service account through the Sheets API). Matching never guesses: one member or none.
+  hours after it. People sign with Discord (anyone with a role on the club's server, through the
+  admin sign-in's callback with a `next` cookie) or a typed full name; entries are validated,
+  de-duplicated and kept in `jelenlet/<event>.json` in the state directory, then matched to the
+  membership Google Sheet (`MEMBERS_SHEET`, read with the Drive service account; by its Discord
+  column when present, else by name; matching never guesses). A tagged cookie gives the phone
+  its "Kitöltve" ticket. All sheets are one keyed CSV (/jelenlet.csv) for Google Sheets'
+  IMPORTDATA; CSV fields that could be formulas are escaped.
 - UI text is Hungarian. Code, comments and identifiers are English.
 
 ## Commands

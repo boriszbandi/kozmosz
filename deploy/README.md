@@ -107,7 +107,7 @@ Majd mentsd el, és indítsd újra: `sudo systemctl restart kozmosz`. A naplóba
 
 ## Admin-belépés (Discord)
 
-A footer belépésikonja Discorddal léptet be, jelszó nincs. Csak az léphet be, aki tagja a klub Discord-szerverének, megvan az admin rangja, és be van kapcsolva a kétlépcsős azonosítása. Az alkalmazás, a szerver és a rang azonosítója a `src/admin.rs`-ben van.
+A footer belépésikonja Discorddal léptet be, jelszó nincs. Csak az léphet be, aki tagja a klub Discord-szerverének, és megvan az admin rangja. Az alkalmazás, a szerver és a rang azonosítója a `src/admin.rs`-ben van.
 
 1. A Discord Developer Portalon az alkalmazás OAuth2 oldalán add hozzá ezt az átirányítást (Redirects): `https://kozmosz.bme.hu/belepes/discord`.
 2. A Client Secretet így add a szervernek (a parancs bekéri, és nem kerül a parancssori előzményekbe):

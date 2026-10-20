@@ -2709,10 +2709,24 @@ span.admin-tool {
   letter-spacing: -0.01em;
 }
 
-.admin-status {
+.admin-status,
+.admin-note {
   margin: 0 0 var(--s3);
   color: var(--muted);
   font-size: var(--fs-sm);
+}
+
+/* The Google Sheets formula: easy to select and copy whole. */
+.admin-formula {
+  display: block;
+  padding: 12px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  color: var(--heading);
+  font: 0.8125rem/1.5 var(--font-mono);
+  overflow-wrap: anywhere;
+  user-select: all;
 }
 
 .admin-group {
@@ -2847,19 +2861,26 @@ span.admin-tool {
   gap: var(--s3);
 }
 
-/* The form behind the QR code: one field, phone first (16px+ text, so iOS does not zoom). */
-.checkin {
+/* Behind the QR code: Discord, or one field (16px+ text, so iOS does not zoom). */
+.checkin,
+.checkin-form {
   display: grid;
   gap: 12px;
   max-width: 28rem;
 }
 
-.checkin label {
+.checkin-or {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+.checkin-form label {
   color: var(--heading);
   font: 700 var(--fs-base)/1.3 var(--font-heading);
 }
 
-.checkin input {
+.checkin-form input {
   min-height: 52px;
   padding: 0 16px;
   border: 1px solid var(--line-2);
@@ -2870,7 +2891,7 @@ span.admin-tool {
   font-size: 1.125rem;
 }
 
-.checkin input:focus-visible {
+.checkin-form input:focus-visible {
   outline: 2px solid var(--signal);
   outline-offset: 2px;
 }

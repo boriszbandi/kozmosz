@@ -1,7 +1,9 @@
 //! Sign-in for the club's admins, without passwords: the sign-in icon in the footer starts
 //! Discord's OAuth2 flow, and only members of the club's Discord server who hold the admin role
-//! and have two-factor authentication on get in. Discord tells both through the user's own
-//! sign-in (scopes `identify` and `guilds.members.read`), so the bot's token is never needed here.
+//! get in (no two-factor requirement: the owner relaxed it, the site keeps nothing sensitive).
+//! Discord tells it through the user's own sign-in (scopes `identify` and `guilds.members.read`),
+//! so the bot's token is never needed here. The same flow, with [`to_discord`]'s `next`, signs
+//! people onto attendance sheets (src/attendance.rs).
 //!
 //! The session is a signed cookie for 30 days (the owner did not want to sign in every day), so a
 //! taken-away role ends access at the latest 30 days later. The signing key lives in the
@@ -35,7 +37,7 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use leptos::logging::{error, log};
 use serde::{de::DeserializeOwned, Deserialize};
 
-use crate::site;
+use crate::{attendance, site};
 
 /// The club's Discord application (its OAuth2 client), server and admin role.
 const CLIENT_ID: &str = "1294343076021534790";
@@ -49,6 +51,8 @@ const API: &str = "https://discord.com/api/v10";
 const CALLBACK: &str = "/belepes/discord";
 const SESSION: &str = "kozmosz_admin";
 const STATE: &str = "kozmosz_state";
+/// Set when a sign-in is an attendance check-in: the sheet's token (src/attendance.rs).
+const NEXT: &str = "kozmosz_next";
 const SESSION_FOR: Duration = Duration::from_secs(30 * 24 * 60 * 60);
 const KEY_FILE: &str = "admin.key";
 
@@ -65,16 +69,28 @@ struct Token {
 }
 
 #[derive(Deserialize)]
-struct Me {
-    id: String,
-    username: String,
+pub struct Me {
+    pub id: String,
+    pub username: String,
+    /// The display name, when the user has set one.
     #[serde(default)]
-    mfa_enabled: bool,
+    pub global_name: Option<String>,
 }
 
+/// The user on the club's server.
 #[derive(Deserialize)]
-struct Member {
+pub struct Member {
     roles: Vec<String>,
+    /// The server nickname, when set.
+    #[serde(default)]
+    pub nick: Option<String>,
+}
+
+impl Member {
+    /// Holds any role on the server (attendance by Discord: members, not passers-by).
+    pub fn has_a_role(&self) -> bool {
+        !self.roles.is_empty()
+    }
 }
 
 #[derive(Deserialize)]
@@ -102,8 +118,13 @@ impl Admin {
         cookie(headers, SESSION).is_some_and(|value| verify(key(), value, now()))
     }
 
-    /// Trades Discord's one-time code for the user, if they may sign in; else says why not.
-    async fn check(&self, code: &str) -> Result<Me, String> {
+    /// Whether Discord sign-in is set up (the client secret is there).
+    pub fn ready(&self) -> bool {
+        self.secret.is_some()
+    }
+
+    /// Trades Discord's one-time code for the user and their membership of the club's server.
+    async fn identify(&self, code: &str) -> Result<(Me, Option<Member>), String> {
         let secret = self.secret.as_deref().ok_or("no client secret")?;
         let token: Token = self
             .client
@@ -120,7 +141,7 @@ impl Admin {
         let me: Me = self.get(&token.access_token, "/users/@me").await?.ok_or("no user")?;
         let member: Option<Member> =
             self.get(&token.access_token, &format!("/users/@me/guilds/{GUILD_ID}/member")).await?;
-        allowed(&me, member.as_ref()).map(|()| me)
+        Ok((me, member))
     }
 
     /// GET from Discord's API as the user; `None` for 404 (not a member of the server).
@@ -134,14 +155,11 @@ impl Admin {
     }
 }
 
-/// Members of the club's server with the admin role and two-factor authentication on.
+/// Members of the club's server with the admin role.
 fn allowed(me: &Me, member: Option<&Member>) -> Result<(), String> {
     let member = member.ok_or_else(|| format!("{} is not on the club's Discord server", me.username))?;
     if !member.roles.iter().any(|r| r == ADMIN_ROLE) {
         return Err(format!("{} lacks the admin role", me.username));
-    }
-    if !me.mfa_enabled {
-        return Err(format!("{} has two-factor authentication off", me.username));
     }
     Ok(())
 }
@@ -151,16 +169,30 @@ pub async fn login(State(admin): State<Arc<Admin>>, headers: HeaderMap) -> Respo
     if admin.signed_in(&headers) {
         return redirect("/admin", &[]);
     }
-    if admin.secret.is_none() {
+    if !admin.ready() {
         return (StatusCode::SERVICE_UNAVAILABLE, "A belépés még nincs beállítva.").into_response();
     }
+    to_discord(None)
+}
+
+/// Off to Discord's consent page (skipped by Discord when the app was approved before). `next`:
+/// the attendance sheet whose check-in this is, if not an admin sign-in.
+pub fn to_discord(next: Option<&str>) -> Response {
     let state = random_token();
     let url = format!(
         "https://discord.com/oauth2/authorize?response_type=code&client_id={CLIENT_ID}\
          &scope=identify%20guilds.members.read&prompt=none&state={state}&redirect_uri={}",
         callback_url().replace(':', "%3A").replace('/', "%2F"),
     );
-    redirect(&url, &[format!("{STATE}={state}; Path=/belepes; Max-Age=600; HttpOnly; Secure; SameSite=Lax")])
+    let next = match next {
+        Some(token) => format!("{NEXT}={token}; Path=/belepes; Max-Age=600; HttpOnly; Secure; SameSite=Lax"),
+        None => forget(NEXT),
+    };
+    redirect(&url, &[format!("{STATE}={state}; Path=/belepes; Max-Age=600; HttpOnly; Secure; SameSite=Lax"), next])
+}
+
+fn forget(name: &str) -> String {
+    format!("{name}=; Path=/belepes; Max-Age=0; HttpOnly; Secure; SameSite=Lax")
 }
 
 /// GET /belepes/discord: Discord sends the browser back with a one-time code and the state that
@@ -170,14 +202,32 @@ pub async fn callback(
     headers: HeaderMap,
     Query(back): Query<Callback>,
 ) -> Response {
-    let forget_state = format!("{STATE}=; Path=/belepes; Max-Age=0; HttpOnly; Secure; SameSite=Lax");
+    let forget_state = forget(STATE);
     let state_ok = match (back.state.as_deref(), cookie(&headers, STATE)) {
         (Some(got), Some(sent)) => constant_time::verify_slices_are_equal(got.as_bytes(), sent.as_bytes()).is_ok(),
         _ => false,
     };
+    let next = cookie(&headers, NEXT).map(str::to_owned);
     // No code: cancelled on Discord's page.
-    let (Some(code), true) = (back.code, state_ok) else { return redirect("/", &[forget_state]) };
-    match admin.check(&code).await {
+    let (Some(code), true) = (back.code, state_ok) else {
+        let back = next.map_or_else(|| "/".to_owned(), |token| format!("/jelen/{token}"));
+        return redirect_safe(&back, &[forget_state, forget(NEXT)]);
+    };
+    let identified = admin.identify(&code).await;
+    if let Some(token) = next {
+        let mut response = match identified {
+            Ok((me, member)) => attendance::check_in_with(&token, &me, member.as_ref()),
+            Err(reason) => {
+                log!("attendance: Discord check-in failed: {reason}");
+                attendance::problem(&token, "discord")
+            }
+        };
+        for c in [forget_state, forget(NEXT)] {
+            response.headers_mut().append(SET_COOKIE, HeaderValue::from_str(&c).expect("ASCII cookie"));
+        }
+        return response;
+    }
+    match identified.and_then(|(me, member)| allowed(&me, member.as_ref()).map(|()| me)) {
         Ok(me) => {
             log!("admin: {} ({}) signed in", me.username, me.id);
             let expires = now() + SESSION_FOR.as_secs();
@@ -213,6 +263,12 @@ pub async fn guard(State(admin): State<Arc<Admin>>, req: Request, next: Next) ->
     let mut response = next.run(req).await;
     response.headers_mut().insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
     response
+}
+
+/// [`redirect`] to a path made from a cookie: anything but a token's characters goes home.
+fn redirect_safe(to: &str, cookies: &[String]) -> Response {
+    let safe = to.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'/' | b'-' | b'_'));
+    redirect(if safe { to } else { "/" }, cookies)
 }
 
 /// A 303 to `to` that sets `cookies` and is never cached. Both are built here from ASCII.
@@ -321,13 +377,12 @@ mod tests {
     }
 
     #[test]
-    fn only_admins_with_two_factor() {
-        let me = |mfa_enabled| Me { id: "1".into(), username: "borisz".into(), mfa_enabled };
-        let admin = Member { roles: vec!["9".into(), ADMIN_ROLE.into()] };
-        let member = Member { roles: vec!["9".into()] };
-        assert!(allowed(&me(true), Some(&admin)).is_ok());
-        assert!(allowed(&me(false), Some(&admin)).is_err());
-        assert!(allowed(&me(true), Some(&member)).is_err());
-        assert!(allowed(&me(true), None).is_err());
+    fn only_the_admin_role_gets_in() {
+        let me = Me { id: "1".into(), username: "borisz".into(), global_name: None };
+        let with = |roles: &[&str]| Member { roles: roles.iter().map(|r| (*r).to_owned()).collect(), nick: None };
+        assert!(allowed(&me, Some(&with(&["9", ADMIN_ROLE]))).is_ok());
+        assert!(allowed(&me, Some(&with(&["9"]))).is_err(), "another role");
+        assert!(allowed(&me, None).is_err(), "not on the server");
+        assert!(with(&["9"]).has_a_role() && !with(&[]).has_a_role());
     }
 }

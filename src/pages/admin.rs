@@ -155,7 +155,7 @@ pub fn SignInRefused() -> impl IntoView {
         <Meta name="robots" content="noindex"/>
         <PageHeader title="Nem sikerült belépni">
             <p class="page-lead">
-                "Ide a Kozmosz Discord-szerverének admin rangjával és bekapcsolt kétlépcsős azonosítással lehet belépni."
+                "Ide a Kozmosz Discord-szerverének admin rangjával lehet belépni."
             </p>
             <div class="actions">
                 <a class="button button-signal" href="/">"Kezdőlap"</a>

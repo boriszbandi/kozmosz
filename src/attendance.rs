@@ -1,14 +1,17 @@
 //! Attendance sheets for the club's events (owner's request 2026-10-20). Every calendar event has
 //! one: an admin opens it on the dashboard and shows its QR code, and whoever scans it lands on
-//! /jelen/<token>, types their name and is on the list. The names are matched against the
-//! membership sheet (a Google Sheet read with the Drive service account), so the admin sees which
-//! members came.
+//! /jelen/<token> and signs in one of two ways: with Discord (anyone holding a role on the club's
+//! server; their server nickname, else Discord name, goes on the sheet with their user name), or
+//! by typing their full name. The names are matched against the membership sheet (a Google Sheet
+//! read with the Drive service account), and all sheets together are one CSV that the club's
+//! Google Sheet imports by itself (IMPORTDATA), so attendance reaches the spreadsheet untyped.
 //!
 //! - The QR link's token is a tag of the event ([`admin::tag`]): unguessable, nothing to store,
-//!   and void once admin.key is deleted.
+//!   and void once admin.key is deleted. So is the export link's key.
 //! - A sheet takes names from an hour before the event until three hours after it.
 //! - Each event's names are a small JSON file in the state directory (jelenlet/<event>.json), so
 //!   a sheet stays listed after its event has left the calendar.
+//! - After signing, the phone keeps a ticket (a tagged cookie) that shows "Kitöltve".
 
 use std::{
     cmp::Reverse,
@@ -20,7 +23,7 @@ use std::{
 
 use aws_lc_rs::constant_time;
 use axum::{
-    extract::{Form, Path},
+    extract::{Form, Path, Query, State},
     http::{header, request::Parts, HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Redirect, Response},
 };
@@ -35,7 +38,7 @@ use qrcode::{render::svg, QrCode};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    admin,
+    admin::{self, Admin, Me, Member},
     calendar::{self, Event, LocalDateTime},
     drive::{slugify, write_atomic, ServiceAccount, ENV_CREDENTIALS},
     icons,
@@ -77,11 +80,21 @@ struct Signed {
     name: String,
     /// Unix seconds.
     at: i64,
+    /// The Discord user name, when signed with Discord.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    discord: Option<String>,
+}
+
+/// One person on the membership sheet.
+struct Enrolled {
+    name: String,
+    /// Their Discord user name (lowercase), when the sheet has a Discord column.
+    discord: Option<String>,
 }
 
 #[derive(Default)]
 struct Members {
-    names: Vec<String>,
+    people: Vec<Enrolled>,
     status: String,
 }
 
@@ -94,6 +107,11 @@ struct Values {
 #[derive(Deserialize)]
 pub struct Signature {
     nev: String,
+}
+
+#[derive(Deserialize)]
+pub struct ExportKey {
+    k: Option<String>,
 }
 
 struct Row {
@@ -141,7 +159,8 @@ fn ticket(headers: &HeaderMap, key: &str) -> Option<(String, i64)> {
     ok.then_some((name, at))
 }
 
-/// The calendar event whose sheet the token `given` opens.
+/// The calendar event whose sheet the token `given` opens. Only real tokens pass, so a `given`
+/// that does is safe in a URL.
 fn find(given: &str) -> Option<Event> {
     let calendar = calendar::current();
     calendar
@@ -168,10 +187,14 @@ fn now() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64)
 }
 
-/// "18:05", Budapest time.
-fn clock(at: i64) -> String {
+/// A Unix time in Budapest, formatted ("%H:%M", "%Y-%m-%d").
+fn local(at: i64, format: &str) -> String {
     let zone = TimeZone::get(ZONE).unwrap_or(TimeZone::UTC);
-    Timestamp::from_second(at).map(|t| t.to_zoned(zone).strftime("%H:%M").to_string()).unwrap_or_default()
+    Timestamp::from_second(at).map(|t| t.to_zoned(zone).strftime(format).to_string()).unwrap_or_default()
+}
+
+fn clock(at: i64) -> String {
+    local(at, "%H:%M")
 }
 
 /// Names are taken from an hour before the start until three hours after the end (all-day
@@ -205,16 +228,16 @@ fn words(name: &str) -> Vec<String> {
 /// The member a typed name stands for: each of its words (at least two) begins a different word
 /// of exactly one member's name, in any order ("Kovács A." and "anna kovacs" both find "Kovács
 /// Anna Petra"). None when no member or several fit.
-fn member<'a>(name: &str, members: &'a [String]) -> Option<&'a str> {
+fn member<'a>(name: &str, people: &'a [Enrolled]) -> Option<&'a str> {
     let mut typed = words(name);
     if typed.len() < 2 {
         return None;
     }
     // Longer words first, so "a" does not take the word that "anna" needs.
     typed.sort_by_key(|w| Reverse(w.len()));
-    let mut fits = members.iter().filter(|m| covers(&words(m), &typed));
+    let mut fits = people.iter().filter(|p| covers(&words(&p.name), &typed));
     let first = fits.next()?;
-    fits.next().is_none().then_some(first.as_str())
+    fits.next().is_none().then_some(first.name.as_str())
 }
 
 fn covers(member: &[String], typed: &[String]) -> bool {
@@ -226,6 +249,13 @@ fn covers(member: &[String], typed: &[String]) -> bool {
         }
         None => false,
     })
+}
+
+/// The member someone on a sheet is: by their Discord user name when the membership sheet lists
+/// it, else by name ([`member`]).
+fn matched<'a>(signed: &Signed, people: &'a [Enrolled]) -> Option<&'a str> {
+    let by_discord = signed.discord.as_deref().and_then(|d| people.iter().find(|p| p.discord.as_deref() == Some(d)));
+    by_discord.map(|p| p.name.as_str()).or_else(|| member(&signed.name, people))
 }
 
 fn dir() -> PathBuf {
@@ -249,9 +279,9 @@ fn stored(dir: &FsPath) -> Vec<(String, Sheet)> {
         .collect()
 }
 
-/// Puts `name` on the event's sheet; a name already there (ignoring case, accents and spacing)
-/// is not added again.
-fn record(dir: &FsPath, event: &Event, name: &str, now: i64) -> Result<(), String> {
+/// Puts `name` on the event's sheet. Someone already there (the same Discord account, or the
+/// same name ignoring case, accents and spacing) is not added again.
+fn record(dir: &FsPath, event: &Event, name: &str, discord: Option<&str>, now: i64) -> Result<(), String> {
     let _one = WRITING.lock().unwrap_or_else(PoisonError::into_inner);
     let key = key(event);
     let mut sheet = load(dir, &key).unwrap_or_else(|| Sheet {
@@ -261,13 +291,14 @@ fn record(dir: &FsPath, event: &Event, name: &str, now: i64) -> Result<(), Strin
         names: Vec::new(),
     });
     let folded = words(name);
-    if sheet.names.iter().any(|s| words(&s.name) == folded) {
+    let there = |s: &Signed| (discord.is_some() && s.discord.as_deref() == discord) || words(&s.name) == folded;
+    if sheet.names.iter().any(there) {
         return Ok(());
     }
     if sheet.names.len() >= MAX_NAMES {
         return Err(format!("{key}: the sheet is full"));
     }
-    sheet.names.push(Signed { name: name.to_owned(), at: now });
+    sheet.names.push(Signed { name: name.to_owned(), at: now, discord: discord.map(str::to_owned) });
     std::fs::create_dir_all(dir).map_err(|e| format!("cannot create {}: {e}", dir.display()))?;
     let json = serde_json::to_vec(&sheet).map_err(|e| e.to_string())?;
     write_atomic(&dir.join(format!("{key}.json")), &json)
@@ -275,7 +306,7 @@ fn record(dir: &FsPath, event: &Event, name: &str, now: i64) -> Result<(), Strin
 
 fn members() -> Arc<Members> {
     MEMBERS.read().unwrap_or_else(PoisonError::into_inner).clone().unwrap_or_else(|| {
-        Arc::new(Members { names: Vec::new(), status: "A tagsági lista nincs beállítva.".into() })
+        Arc::new(Members { people: Vec::new(), status: "A tagsági lista nincs beállítva.".into() })
     })
 }
 
@@ -283,25 +314,27 @@ fn publish(members: Members) {
     *MEMBERS.write().unwrap_or_else(PoisonError::into_inner) = Some(Arc::new(members));
 }
 
-/// The names in the membership sheet: the column headed "Név", "Teljes név" or "Name" (else the
-/// first column), below the header row.
-fn names(rows: &[Vec<String>]) -> Vec<String> {
-    let column = rows
-        .first()
-        .and_then(|header| {
-            header.iter().position(|h| matches!(slugify(h).as_str(), "nev" | "teljes-nev" | "name" | "full-name"))
-        })
-        .unwrap_or(0);
+/// The people on the membership sheet, below its header row: names from the column headed
+/// "Név", "Teljes név" or "Name" (else the first column), Discord user names from a column whose
+/// header starts with "Discord", if there is one.
+fn people(rows: &[Vec<String>]) -> Vec<Enrolled> {
+    let header: Vec<String> = rows.first().map(|h| h.iter().map(|cell| slugify(cell)).collect()).unwrap_or_default();
+    let name = header.iter().position(|h| matches!(h.as_str(), "nev" | "teljes-nev" | "name" | "full-name")).unwrap_or(0);
+    let discord = header.iter().position(|h| h.starts_with("discord"));
     rows.iter()
         .skip(1)
-        .filter_map(|row| row.get(column))
-        .map(|name| name.trim())
-        .filter(|name| !name.is_empty())
-        .map(str::to_owned)
+        .filter_map(|row| {
+            let name = row.get(name)?.trim();
+            let discord = discord
+                .and_then(|i| row.get(i))
+                .map(|d| d.trim().trim_start_matches('@').to_lowercase())
+                .filter(|d| !d.is_empty());
+            (!name.is_empty()).then(|| Enrolled { name: name.to_owned(), discord })
+        })
         .collect()
 }
 
-async fn read_members(client: &reqwest::Client, account: &mut ServiceAccount, sheet: &str) -> Result<Vec<String>, String> {
+async fn read_members(client: &reqwest::Client, account: &mut ServiceAccount, sheet: &str) -> Result<Vec<Enrolled>, String> {
     let token = account.token(client).await?;
     let values: Values = client
         .get(format!("https://sheets.googleapis.com/v4/spreadsheets/{sheet}/values/A:Z"))
@@ -313,7 +346,7 @@ async fn read_members(client: &reqwest::Client, account: &mut ServiceAccount, sh
         .json()
         .await
         .map_err(|e| e.to_string())?;
-    Ok(names(&values.values))
+    Ok(people(&values.values))
 }
 
 /// Reads the membership sheet at startup and every 10 minutes, once it is set up
@@ -328,7 +361,8 @@ pub fn spawn_members_refresh() {
         Ok(account) => account,
         Err(err) => {
             error!("attendance: cannot read the membership sheet: {err}");
-            publish(Members { names: Vec::new(), status: "A tagsági listához nincs beállítva a service account.".into() });
+            let status = "A tagsági listához nincs beállítva a service account.".into();
+            publish(Members { people: Vec::new(), status });
             return;
         }
     };
@@ -341,15 +375,16 @@ pub fn spawn_members_refresh() {
     tokio::spawn(async move {
         loop {
             match read_members(&client, &mut account, sheet).await {
-                Ok(names) => {
-                    log!("attendance: {} members in the membership sheet", names.len());
-                    let status = format!("{} név a tagsági listában (frissítve {}).", names.len(), clock(now()));
-                    publish(Members { names, status });
+                Ok(people) => {
+                    log!("attendance: {} people in the membership sheet", people.len());
+                    let status = format!("{} név a tagsági listában (frissítve {}).", people.len(), clock(now()));
+                    publish(Members { people, status });
                 }
                 Err(err) => {
                     error!("attendance: cannot read the membership sheet: {err}");
-                    let names = members().names.clone();
-                    publish(Members { names, status: "A tagsági lista most nem olvasható, a legutóbbi névsorral egyeztetek.".into() });
+                    let people = members().people.iter().map(|p| Enrolled { name: p.name.clone(), discord: p.discord.clone() }).collect();
+                    let status = "A tagsági lista most nem olvasható, a legutóbbi névsorral egyeztetek.".into();
+                    publish(Members { people, status });
                 }
             }
             tokio::time::sleep(REFRESH_EVERY).await;
@@ -357,23 +392,23 @@ pub fn spawn_members_refresh() {
     });
 }
 
-/// POST /jelen/{token}: puts the name on the sheet, gives this phone its ticket (a cookie for
-/// the page), then back to the page, which shows the ticket.
-pub async fn sign(Path(given): Path<String>, Form(form): Form<Signature>) -> Response {
-    let Some(event) = find(&given) else { return StatusCode::NOT_FOUND.into_response() };
-    // `given` is a token we made: safe in a header.
-    let page = format!("/jelen/{given}");
-    let now = now();
-    if !is_open(&event, now) {
-        return Redirect::to(&page).into_response();
+/// Back to the sheet's page with a problem to explain (see [`check_in_page`]).
+pub fn problem(given: &str, code: &str) -> Response {
+    match find(given) {
+        Some(_) => Redirect::to(&format!("/jelen/{given}?hiba={code}")).into_response(),
+        None => Redirect::to("/").into_response(),
     }
-    let Some(name) = clean_name(&form.nev) else { return Redirect::to(&format!("{page}?hiba=nev")).into_response() };
-    match record(&dir(), &event, &name, now) {
+}
+
+/// Puts the name on the sheet and sends the phone back to the page with its ticket.
+fn enter(given: &str, event: &Event, name: &str, discord: Option<&str>) -> Response {
+    let (page, now) = (format!("/jelen/{given}"), now());
+    match record(&dir(), event, name, discord, now) {
         Ok(()) => {
             let mut response = Redirect::to(&page).into_response();
             let cookie = format!(
                 "{TICKET}={}; Path={page}; Max-Age=43200; HttpOnly; Secure; SameSite=Lax",
-                ticket_value(&key(&event), &name, now),
+                ticket_value(&key(event), name, now),
             );
             // Base64, digits and the token: always a valid header.
             response.headers_mut().append(header::SET_COOKIE, HeaderValue::from_str(&cookie).expect("ASCII cookie"));
@@ -381,13 +416,58 @@ pub async fn sign(Path(given): Path<String>, Form(form): Form<Signature>) -> Res
         }
         Err(err) => {
             error!("attendance: {err}");
-            Redirect::to(&format!("{page}?hiba=mentes")).into_response()
+            problem(given, "mentes")
         }
     }
 }
 
-/// GET /admin/jelenlet/{key}/csv (behind admin::guard): the names and their members, the way
-/// Hungarian Excel opens a CSV (semicolons, byte-order mark).
+/// POST /jelen/{token}: a typed name.
+pub async fn sign(Path(given): Path<String>, Form(form): Form<Signature>) -> Response {
+    let Some(event) = find(&given) else { return StatusCode::NOT_FOUND.into_response() };
+    if !is_open(&event, now()) {
+        return Redirect::to(&format!("/jelen/{given}")).into_response();
+    }
+    match clean_name(&form.nev) {
+        Some(name) => enter(&given, &event, &name, None),
+        None => problem(&given, "nev"),
+    }
+}
+
+/// GET /jelen/{token}/discord: the "Igazolás Discorddal" button, off to Discord's sign-in. The
+/// answer comes back through admin::callback to [`check_in_with`].
+pub async fn discord(State(admin): State<Arc<Admin>>, Path(given): Path<String>) -> Response {
+    let Some(event) = find(&given) else { return StatusCode::NOT_FOUND.into_response() };
+    if !is_open(&event, now()) || !admin.ready() {
+        return problem(&given, "discord");
+    }
+    admin::to_discord(Some(&given))
+}
+
+/// A Discord sign-in for the sheet `given` came back. Anyone with a role on the club's server
+/// goes on the sheet under their server nickname (else their Discord name), with their user
+/// name; Discord vouches for both.
+pub fn check_in_with(given: &str, me: &Me, member: Option<&Member>) -> Response {
+    let Some(event) = find(given) else { return Redirect::to("/").into_response() };
+    if !is_open(&event, now()) {
+        return Redirect::to(&format!("/jelen/{given}")).into_response();
+    }
+    let Some(member) = member.filter(|m| m.has_a_role()) else {
+        log!("attendance: {} has no role on the club's Discord server", me.username);
+        return problem(given, "tag");
+    };
+    let shown = member.nick.as_deref().or(me.global_name.as_deref()).unwrap_or(&me.username);
+    let name: String = shown.trim().chars().take(60).collect();
+    enter(given, &event, &name, Some(&me.username.to_lowercase()))
+}
+
+/// A CSV field: quoted, and never read as a formula (a Discord nickname could start with "=").
+fn quote(field: &str) -> String {
+    let safe = if field.starts_with(['=', '+', '-', '@', '\t', '\r']) { format!("'{field}") } else { field.to_owned() };
+    format!("\"{}\"", safe.replace('"', "\"\""))
+}
+
+/// GET /admin/jelenlet/{key}/csv (behind admin::guard): one sheet the way Hungarian Excel opens
+/// a CSV (semicolons, byte-order mark).
 pub async fn csv(Path(key): Path<String>) -> Response {
     if !valid_key(&key) {
         return StatusCode::NOT_FOUND.into_response();
@@ -395,17 +475,57 @@ pub async fn csv(Path(key): Path<String>) -> Response {
     // No file yet: nobody has signed, an empty table.
     let names = load(&dir(), &key).map(|s| s.names).unwrap_or_default();
     let members = members();
-    let field = |s: &str| format!("\"{}\"", s.replace('"', "\"\""));
-    let mut out = String::from("\u{feff}Név;Tag;Időpont\r\n");
+    let mut out = String::from("\u{feff}Név;Tag;Discord;Időpont\r\n");
     for s in &names {
-        let matched = member(&s.name, &members.names).unwrap_or_default();
-        out.push_str(&format!("{};{};{}\r\n", field(&s.name), field(matched), clock(s.at)));
+        let fields = [
+            quote(&s.name),
+            quote(matched(s, &members.people).unwrap_or_default()),
+            quote(s.discord.as_deref().unwrap_or_default()),
+            clock(s.at),
+        ];
+        out.push_str(&fields.join(";"));
+        out.push_str("\r\n");
     }
     let headers = [
         (header::CONTENT_TYPE, "text/csv; charset=utf-8".to_owned()),
         (header::CONTENT_DISPOSITION, format!("attachment; filename=\"jelenlet-{key}.csv\"")),
     ];
     (headers, out).into_response()
+}
+
+fn export_key() -> String {
+    admin::tag("jelenlet-export")
+}
+
+/// GET /jelenlet.csv?k=<key>: every sheet as one CSV for Google Sheets' IMPORTDATA, which
+/// fetches it about hourly. The key keeps the names private; the dashboard shows the formula.
+pub async fn export(Query(given): Query<ExportKey>) -> Response {
+    let key_ok = given
+        .k
+        .as_deref()
+        .is_some_and(|k| constant_time::verify_slices_are_equal(k.as_bytes(), export_key().as_bytes()).is_ok());
+    if !key_ok {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let members = members();
+    let mut sheets = stored(&dir());
+    sheets.sort_by_key(|(_, sheet)| sheet.start);
+    let mut out = String::from("Nap,Esemény,Név,Tag,Discord,Időpont\r\n");
+    for (_, sheet) in &sheets {
+        for s in &sheet.names {
+            let fields = [
+                local(sheet.start, "%Y-%m-%d"),
+                quote(&sheet.title),
+                quote(&s.name),
+                quote(matched(s, &members.people).unwrap_or_default()),
+                quote(s.discord.as_deref().unwrap_or_default()),
+                clock(s.at),
+            ];
+            out.push_str(&fields.join(","));
+            out.push_str("\r\n");
+        }
+    }
+    ([(header::CONTENT_TYPE, "text/csv; charset=utf-8")], out).into_response()
 }
 
 fn row(dir: &FsPath, event: &Event, now: i64) -> Row {
@@ -415,7 +535,7 @@ fn row(dir: &FsPath, event: &Event, now: i64) -> Row {
 }
 
 /// /admin: the sheets of the coming events, then of the earlier ones (the calendar's recent past
-/// and every older sheet on disk).
+/// and every older sheet on disk), and the formula that brings them all into Google Sheets.
 pub fn events_page() -> AnyView {
     let (calendar, dir, now) = (calendar::current(), dir(), now());
     let coming: Vec<Row> = calendar.upcoming.iter().take(10).map(|e| row(&dir, e, now)).collect();
@@ -429,6 +549,7 @@ pub fn events_page() -> AnyView {
     }
     earlier.sort_by_key(|(start, _)| Reverse(*start));
     let earlier = earlier.into_iter().map(|(_, row)| row).collect();
+    let formula = format!("=IMPORTDATA(\"{}/jelenlet.csv?k={}\")", site::ORIGIN, export_key());
     view! {
         <AdminLayout title="Jelenléti ívek" section=Section::Sheets>
             <p class="admin-status">{members().status.clone()}</p>
@@ -436,6 +557,11 @@ pub fn events_page() -> AnyView {
             {event_list(coming)}
             <h2 class="admin-group">"Korábbi események"</h2>
             {event_list(earlier)}
+            <h2 class="admin-group">"Google Táblázatba"</h2>
+            <p class="admin-note">
+                "Egy új munkalap A1 cellájába írva a táblázat magától behúzza az összes jelenléti ívet, és kb. óránként frissíti:"
+            </p>
+            <code class="admin-formula">{formula}</code>
         </AdminLayout>
     }
     .into_any()
@@ -498,11 +624,11 @@ pub fn event_page(key: &str) -> AnyView {
     let qr = link.as_deref().and_then(qr_svg).zip(link.clone());
     let members = members();
     let names = sheet.map(|s| s.names).unwrap_or_default();
-    let listed: Vec<(String, Option<String>, String)> = names
+    let listed: Vec<(String, Option<String>, Option<String>, String)> = names
         .iter()
-        .map(|s| (s.name.clone(), member(&s.name, &members.names).map(str::to_owned), clock(s.at)))
+        .map(|s| (s.name.clone(), matched(s, &members.people).map(str::to_owned), s.discord.clone(), clock(s.at)))
         .collect();
-    let matched = listed.iter().filter(|(_, m, _)| m.is_some()).count();
+    let in_list = listed.iter().filter(|(_, m, _, _)| m.is_some()).count();
     let here = format!("/admin/jelenlet/{key}");
     view! {
         <AdminLayout title=title section=Section::Sheets>
@@ -518,7 +644,7 @@ pub fn event_page(key: &str) -> AnyView {
                     <p class="sheet-count">
                         <strong class="mono">{listed.len()}</strong>
                         " név, ebből "
-                        <strong class="mono">{matched}</strong>
+                        <strong class="mono">{in_list}</strong>
                         " a tagsági listán"
                     </p>
                     {if listed.is_empty() {
@@ -528,11 +654,12 @@ pub fn event_page(key: &str) -> AnyView {
                             <ol class="sheet-list">
                                 {listed
                                     .into_iter()
-                                    .map(|(name, member, at)| view! {
+                                    .map(|(name, member, discord, at)| view! {
                                         <li>
                                             <span class="sheet-name">{name}</span>
                                             <span class="sheet-member">
                                                 {member.unwrap_or_else(|| "nem találom a tagok között".into())}
+                                                {discord.map(|d| format!(" · Discord: @{d}"))}
                                             </span>
                                             <span class="sheet-time mono">{at}</span>
                                         </li>
@@ -556,8 +683,9 @@ pub fn event_page(key: &str) -> AnyView {
     .into_any()
 }
 
-/// /jelen/<token>: the form behind the QR code, or this phone's ticket once its name is on the
-/// sheet. `problem` after a refused name ("nev": not a name, "mentes": could not save).
+/// /jelen/<token>: Discord or a typed name, or this phone's ticket once it is on the sheet.
+/// `problem` after a refused try: "nev" (not a name), "discord" (the Discord sign-in failed),
+/// "tag" (no role on the club's server), "mentes" (could not save).
 pub fn check_in_page(given: &str, problem: Option<&str>) -> AnyView {
     let Some(event) = find(given) else { return view! { <NotFound/> }.into_any() };
     let open = is_open(&event, now());
@@ -565,6 +693,8 @@ pub fn check_in_page(given: &str, problem: Option<&str>) -> AnyView {
     let ticket = ticket(&headers, &key(&event));
     let problem = problem.map(|p| match p {
         "nev" => "Írd be a teljes neved: legalább 2, legfeljebb 60 betű.",
+        "discord" => "A Discordos igazolás most nem sikerült. Írd be a teljes neved.",
+        "tag" => "Ezzel a Discord-fiókkal nincs rangod a Kozmosz szerverén. Írd be a teljes neved.",
         _ => "Most nem sikerült elmenteni, próbáld újra.",
     });
     let body = if let Some((name, at)) = ticket {
@@ -581,23 +711,30 @@ pub fn check_in_page(given: &str, problem: Option<&str>) -> AnyView {
         view! { <p class="empty-note">"Ez a jelenléti ív most nincs nyitva."</p> }.into_any()
     } else {
         view! {
-            <form class="checkin" method="post">
-                <label for="nev">"A teljes neved"</label>
-                <input
-                    id="nev"
-                    name="nev"
-                    type="text"
-                    required
-                    minlength="2"
-                    maxlength="60"
-                    autocomplete="name"
-                    autocapitalize="words"
-                    aria-describedby="nev-info"
-                />
+            <div class="checkin">
                 {problem.map(|p| view! { <p class="checkin-problem" role="alert">{p}</p> })}
-                <button class="button button-signal" type="submit">"Itt vagyok"</button>
+                <a class="button button-signal" href=format!("/jelen/{given}/discord")>
+                    <Icon svg=icons::DISCORD_LOGO/>
+                    "Igazolás Discorddal"
+                </a>
+                <p class="checkin-or">"vagy"</p>
+                <form class="checkin-form" method="post">
+                    <label for="nev">"A teljes neved"</label>
+                    <input
+                        id="nev"
+                        name="nev"
+                        type="text"
+                        required
+                        minlength="2"
+                        maxlength="60"
+                        autocomplete="name"
+                        autocapitalize="words"
+                        aria-describedby="nev-info"
+                    />
+                    <button class="button button-line" type="submit">"Itt vagyok"</button>
+                </form>
                 <p id="nev-info" class="checkin-info">"A neved a szervezők jelenléti ívére kerül, csak ők látják."</p>
-            </form>
+            </div>
         }
         .into_any()
     };
@@ -622,6 +759,10 @@ mod tests {
         Event { title: title.into(), location: None, description: None, start: at(hour), end: at(end_hour), all_day: false }
     }
 
+    fn enrolled(names: &[(&str, Option<&str>)]) -> Vec<Enrolled> {
+        names.iter().map(|&(name, discord)| Enrolled { name: name.into(), discord: discord.map(str::to_owned) }).collect()
+    }
+
     #[test]
     fn names_are_tidied_and_checked() {
         assert_eq!(clean_name("  Kovács   Anna "), Some("Kovács Anna".into()));
@@ -634,13 +775,22 @@ mod tests {
 
     #[test]
     fn typed_names_find_one_member() {
-        let members = ["Kovács Anna Petra", "Kovács András", "Dr. Szabó József"].map(String::from);
-        assert_eq!(member("anna kovacs", &members), Some("Kovács Anna Petra"));
-        assert_eq!(member("Kovács Anna", &members), Some("Kovács Anna Petra"));
-        assert_eq!(member("Szabó József", &members), Some("Dr. Szabó József"));
-        assert_eq!(member("Kovács A.", &members), None, "two members fit");
-        assert_eq!(member("Anna", &members), None, "one word is not enough");
-        assert_eq!(member("Kiss Péter", &members), None);
+        let people = enrolled(&[("Kovács Anna Petra", None), ("Kovács András", None), ("Dr. Szabó József", None)]);
+        assert_eq!(member("anna kovacs", &people), Some("Kovács Anna Petra"));
+        assert_eq!(member("Kovács Anna", &people), Some("Kovács Anna Petra"));
+        assert_eq!(member("Szabó József", &people), Some("Dr. Szabó József"));
+        assert_eq!(member("Kovács A.", &people), None, "two members fit");
+        assert_eq!(member("Anna", &people), None, "one word is not enough");
+        assert_eq!(member("Kiss Péter", &people), None);
+    }
+
+    #[test]
+    fn discord_user_names_match_exactly() {
+        let people = enrolled(&[("Végh Máté", Some("vmate04")), ("Kovács Anna", None)]);
+        let signed = |name: &str, discord: Option<&str>| Signed { name: name.into(), at: 0, discord: discord.map(str::to_owned) };
+        assert_eq!(matched(&signed("Máté", Some("vmate04")), &people), Some("Végh Máté"), "a nickname alone");
+        assert_eq!(matched(&signed("Anna K", Some("anna_k")), &people), Some("Kovács Anna"), "by name");
+        assert_eq!(matched(&signed("Valaki", Some("valaki")), &people), None);
     }
 
     #[test]
@@ -663,10 +813,26 @@ mod tests {
     }
 
     #[test]
-    fn members_come_from_the_name_column() {
-        let rows = |header: &str| vec![vec!["E-mail".into(), header.into()], vec!["a@b.hu".into(), " Kovács Anna ".into()], vec!["c@d.hu".into(), String::new()]];
-        assert_eq!(names(&rows("Teljes név")), ["Kovács Anna"]);
-        assert_eq!(names(&rows("Valami")), ["a@b.hu", "c@d.hu"], "no name header: the first column");
+    fn people_come_from_the_name_and_discord_columns() {
+        let rows = |header: &str| {
+            vec![
+                vec!["E-mail".into(), header.into(), "Discord név".into()],
+                vec!["a@b.hu".into(), " Kovács Anna ".into(), "@Anna_K".into()],
+                vec!["c@d.hu".into(), String::new(), "x".into()],
+            ]
+        };
+        let found = people(&rows("Teljes név"));
+        assert_eq!(found.len(), 1);
+        assert_eq!((found[0].name.as_str(), found[0].discord.as_deref()), ("Kovács Anna", Some("anna_k")));
+        let first_column = people(&rows("Valami"));
+        assert_eq!(first_column.iter().map(|p| p.name.as_str()).collect::<Vec<_>>(), ["a@b.hu", "c@d.hu"]);
+    }
+
+    #[test]
+    fn csv_fields_are_never_formulas() {
+        assert_eq!(quote("Kovács \"Kovi\" Anna"), "\"Kovács \"\"Kovi\"\" Anna\"");
+        assert_eq!(quote("=HYPERLINK(\"x\")"), "\"'=HYPERLINK(\"\"x\"\")\"");
+        assert_eq!(quote("-Anna"), "\"'-Anna\"");
     }
 
     #[test]
@@ -690,11 +856,12 @@ mod tests {
     fn a_name_goes_on_the_sheet_once() {
         let dir = std::env::temp_dir().join(format!("kozmosz-jelenlet-{}", std::process::id()));
         let e = event("Teszt", (18, 20));
-        record(&dir, &e, "Kovács Anna", 1).unwrap();
-        record(&dir, &e, "kovacs  ANNA", 2).unwrap();
-        record(&dir, &e, "Szabó József", 3).unwrap();
+        record(&dir, &e, "Kovács Anna", None, 1).unwrap();
+        record(&dir, &e, "kovacs  ANNA", None, 2).unwrap();
+        record(&dir, &e, "Máté", Some("vmate04"), 3).unwrap();
+        record(&dir, &e, "Végh Máté", Some("vmate04"), 4).unwrap();
         let sheet = load(&dir, &key(&e)).unwrap();
-        assert_eq!(sheet.names.iter().map(|s| s.name.as_str()).collect::<Vec<_>>(), ["Kovács Anna", "Szabó József"]);
+        assert_eq!(sheet.names.iter().map(|s| s.name.as_str()).collect::<Vec<_>>(), ["Kovács Anna", "Máté"]);
         assert_eq!(stored(&dir).len(), 1);
         std::fs::remove_dir_all(&dir).unwrap();
     }
