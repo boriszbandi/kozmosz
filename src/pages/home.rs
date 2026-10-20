@@ -9,8 +9,10 @@ use crate::{
     media::{Icon, Picture},
 };
 
-/// The lecturer shown with a photo on the home page.
-const FEATURED_LECTURER: &str = "horvath-gyula";
+/// Seconds each lecturer stays in the home page's carousel, and of that the glass cross-fade.
+/// style/main.css times the light sweep (`lecture-sweep`: 6s, the first 20%) to these numbers.
+const TURN: f32 = 6.0;
+const FADE: f32 = 1.2;
 
 pub(crate) const HERO_IMAGE: &str = "kozosseg/egbolt";
 /// Portrait crop of the hero photo for narrow screens (see tools/images.py).
@@ -189,13 +191,22 @@ fn Projects() -> impl IntoView {
     }
 }
 
-/// Every lecturer as one linked line-up, next to one featured lecture photo.
+/// Every lecturer as one linked line-up, next to their photos taking turns: a carousel without
+/// JavaScript (owner's request 2026-10-20). All slides share one grid cell, and one CSS animation
+/// per slide, started a turn after the previous one, frosts it in and out (style/main.css,
+/// "Lecture carousel"). A toggle pauses it; without motion the first lecturer stays.
 #[component]
 fn Lectures() -> impl IntoView {
     let all = lecturers();
-    let featured = all.iter().find(|l| l.slug == FEATURED_LECTURER).map(|l| {
-        (l.name.clone(), l.photo.clone(), l.bio.first().map(|b| first_sentence(b)).unwrap_or_default())
-    });
+    let slides: Vec<_> = all
+        .iter()
+        .filter_map(|l| {
+            let sentence = l.bio.first().map(|b| first_sentence(b)).unwrap_or_default();
+            Some((l.name.clone(), l.photo.clone()?, sentence))
+        })
+        .collect();
+    let turns = (slides.len() > 1).then(|| turn_keyframes(slides.len()));
+    let cycle = format!("--cycle:{}s", TURN * slides.len() as f32);
     view! {
         <section class="section container" aria-labelledby="eloadasaink">
             <h2 class="section-title" id="eloadasaink">"Előadásaink"</h2>
@@ -212,21 +223,50 @@ fn Lectures() -> impl IntoView {
                         <Icon svg=icons::ARROW_RIGHT/>
                     </a>
                 </div>
-                {featured.map(|(name, photo, sentence)| view! {
-                    <figure class="frame lecture-feature">
-                        {photo.map(|p| view! {
-                            // A 3:2 photo covering a 4:5 box: drawn about 1.9x as wide as the column.
-                            <Picture key=p.key alt=p.alt sizes="(width >= 1024px) 720px, (width >= 768px) 62vw, 92vw"/>
-                        })}
-                        <figcaption>
-                            <strong>{name}</strong>
-                            {sentence}
-                        </figcaption>
-                    </figure>
-                })}
+                <div class="lecture-feature carousel" style=cycle>
+                    {turns.map(|keyframes| view! {
+                        // Keyframe offsets cannot use variables: these are made for the slide count.
+                        <style inner_html=keyframes></style>
+                        <input type="checkbox" id="eloadok-allj" class="carousel-pause visually-hidden"/>
+                        <label for="eloadok-allj" class="carousel-toggle">
+                            <span class="visually-hidden">"Képváltás megállítása"</span>
+                            <Icon svg=icons::PAUSE/>
+                            <Icon svg=icons::PLAY/>
+                        </label>
+                    })}
+                    {slides
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, (name, photo, sentence))| view! {
+                            <figure class="frame carousel-slide" style=format!("--at:{:.1}s", i as f32 * TURN - FADE)>
+                                // A 3:2 photo covering a 4:5 box: drawn about 1.9x as wide as the column.
+                                <Picture key=photo.key alt=photo.alt sizes="(width >= 1024px) 720px, (width >= 768px) 62vw, 92vw"/>
+                                <figcaption>
+                                    <strong>{name}</strong>
+                                    {sentence}
+                                </figcaption>
+                            </figure>
+                        })
+                        .collect_view()}
+                </div>
             </div>
         </section>
     }
+}
+
+/// Keyframes for `n` slides taking turns in a cycle of `n` turns: each slide clears from frosted
+/// glass within FADE, holds until its turn ends, then frosts over while the next one clears.
+fn turn_keyframes(n: usize) -> String {
+    let at = |seconds: f32| seconds / (TURN * n as f32) * 100.0;
+    let frosted = "opacity:0;filter:blur(14px) saturate(1.8) brightness(1.25)";
+    format!(
+        "@keyframes lecture-turn{{0%{{{frosted};transform:scale(1.04)}}\
+         {:.3}%,{:.3}%{{opacity:1;filter:blur(0) saturate(1) brightness(1);transform:none}}\
+         {:.3}%,100%{{{frosted};transform:scale(.98)}}}}",
+        at(FADE),
+        at(TURN),
+        at(TURN + FADE),
+    )
 }
 
 #[cfg(test)]
@@ -243,7 +283,13 @@ mod tests {
     }
 
     #[test]
-    fn featured_lecturer_exists() {
-        assert!(super::lecturers().iter().any(|l| l.slug == super::FEATURED_LECTURER));
+    fn carousel_keyframes_fit_the_cycle() {
+        // 15 lecturers: 90 s cycle, in by 1.2 s, out between 6 and 7.2 s.
+        assert_eq!(
+            super::turn_keyframes(15),
+            "@keyframes lecture-turn{0%{opacity:0;filter:blur(14px) saturate(1.8) brightness(1.25);transform:scale(1.04)}\
+             1.333%,6.667%{opacity:1;filter:blur(0) saturate(1) brightness(1);transform:none}\
+             8.000%,100%{opacity:0;filter:blur(14px) saturate(1.8) brightness(1.25);transform:scale(.98)}}"
+        );
     }
 }

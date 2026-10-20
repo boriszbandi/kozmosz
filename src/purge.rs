@@ -14,10 +14,11 @@
 
 use std::collections::HashSet;
 
-/// Returns `html` with its first `<style>` element trimmed to the rules the page can use, or
-/// `None` when there is no `<style>` element or nothing to remove.
+/// Returns `html` with the site stylesheet (the first `<style>` element of the head) trimmed to
+/// the rules the page can use, or `None` when there is none or nothing to remove. A component's
+/// own `<style>` in the body (the carousel's keyframes) is left alone.
 pub fn purge_inline_css(html: &str) -> Option<String> {
-    let open = html.find("<style>")?;
+    let open = html[..html.find("</head>")?].find("<style>")?;
     let start = open + "<style>".len();
     let end = start + html[start..].find("</style>")?;
     let css = &html[start..end];
@@ -355,6 +356,13 @@ mod tests {
         // A class that only appears in the CSS (here in a string) is still unused.
         assert_eq!(purged(".a{k:1}.b{content:\" class=\\\"a\\\"\"}", "<p>x</p>"), "");
         assert!(purge_inline_css("<p>no style</p>").is_none());
+    }
+
+    #[test]
+    fn styles_in_the_body_are_left_alone() {
+        // Dev builds link the stylesheet instead of inlining it: the head has no <style>.
+        let html = r#"<html><head></head><body><style>@keyframes k{0%{opacity:0}}.x{k:1}</style></body></html>"#;
+        assert!(purge_inline_css(html).is_none());
     }
 
     #[test]

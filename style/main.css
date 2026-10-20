@@ -492,7 +492,8 @@ figure {
    readable over any photo scrolling underneath). */
 .brand,
 .nav-desktop .nav-list,
-.nav-mobile summary {
+.nav-mobile summary,
+.carousel-toggle {
   background: linear-gradient(180deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0.02) 60%), rgb(12 15 19 / 0.6);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   backdrop-filter: blur(16px) saturate(180%);
@@ -506,7 +507,8 @@ figure {
 @media (prefers-reduced-transparency: reduce) {
   .brand,
   .nav-desktop .nav-list,
-  .nav-mobile summary {
+  .nav-mobile summary,
+  .carousel-toggle {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
     background-color: var(--bg-2);
@@ -516,7 +518,8 @@ figure {
 @supports not (backdrop-filter: blur(1px)) {
   .brand,
   .nav-desktop .nav-list,
-  .nav-mobile summary {
+  .nav-mobile summary,
+  .carousel-toggle {
     background-color: var(--bg-2);
   }
 }
@@ -1331,6 +1334,94 @@ main > .section {
   font: 700 1.1875rem/1.2 var(--font-heading);
 }
 
+/* Lecture carousel (owner's request 2026-10-20, the one loop on the site): the slides share one
+   grid cell and take turns, each frosting over like glass while the next clears (keyframes made
+   for the slide count in src/pages/home.rs), with a light sweep across the photo at every change.
+   It runs only where motion is allowed, and the toggle pauses it (WCAG 2.2.2); otherwise the
+   first lecturer stays. */
+.carousel {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+}
+
+.carousel-slide {
+  grid-area: 1 / 1;
+}
+
+.carousel-slide:not(:first-of-type) {
+  opacity: 0;
+}
+
+/* The sweep covers the photo, not the caption: the same box as the photo. */
+.carousel::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  aspect-ratio: 3 / 2;
+  background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.16) 47%, rgb(255 255 255 / 0.04) 56%, transparent 72%);
+  transform: translateX(-100%);
+  pointer-events: none;
+}
+
+.carousel-toggle {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+  display: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius);
+  color: var(--heading);
+  cursor: pointer;
+}
+
+.carousel-toggle .icon:last-child,
+.carousel-pause:checked + .carousel-toggle .icon {
+  display: none;
+}
+
+.carousel-pause:checked + .carousel-toggle .icon:last-child {
+  display: inline-flex;
+}
+
+.carousel-pause:focus-visible + .carousel-toggle {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .carousel-slide {
+    animation: lecture-turn var(--cycle) ease-in-out var(--at) infinite;
+  }
+
+  .carousel::after {
+    animation: lecture-sweep 6s ease-in-out 4.8s infinite;
+  }
+
+  .carousel-toggle {
+    display: grid;
+  }
+
+  .carousel:has(.carousel-pause:checked) .carousel-slide,
+  .carousel:has(.carousel-pause:checked)::after {
+    animation-play-state: paused;
+  }
+}
+
+@keyframes lecture-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  20%,
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 /* Wider screens: twelve columns. Below 768px no grid places anything (one column). */
 @media (width >= 768px) {
   .projects-head,
@@ -1395,7 +1486,8 @@ main > .section {
     grid-column: 9 / span 4;
   }
 
-  .lecture-feature img {
+  .lecture-feature img,
+  .carousel::after {
     aspect-ratio: 4 / 5;
   }
 }

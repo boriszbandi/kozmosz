@@ -32,7 +32,9 @@ Top priority: fastest possible load. These rules override any design skill or DE
 - No third-party requests at runtime (no picsum, no CDN logos, no analytics) unless the user asks.
 - Motion: CSS only (transform/opacity, `@view-transition`), always behind `prefers-reduced-motion`.
   Content must never start hidden (no opacity:0 waiting for JS). No looping animation; anything
-  that moves on its own stops within 5 s (WCAG 2.2.2), like the hero's one satellite pass.
+  that moves on its own stops within 5 s (WCAG 2.2.2), like the hero's one satellite pass. The
+  one exception is the home page's lecture carousel (owner's request 2026-10-20): it has a pause
+  toggle and runs only under `prefers-reduced-motion: no-preference`.
 - Glass: `backdrop-filter` blurs only up to the nearest ancestor "backdrop root" (an element with
   `view-transition-name`, `filter`, `opacity` < 1, `mask`, `clip-path` or its own `backdrop-filter`).
   So `.site-header` carries no view-transition-name (its glass chips do), and a glass element
