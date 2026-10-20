@@ -7,9 +7,10 @@ Top priority: fastest possible load. These rules override any design skill or DE
 ## Stack constraints
 - Server-rendered HTML. Zero JavaScript by default. Interactivity only via `#[island]`, and every page
   that contains an island must be listed in `ISLAND_PAGES` (src/app.rs), otherwise it gets no WASM.
-  The one exception is the ~120-byte inline `CLOSE_MENU_ON_LEAVE` script in `shell()` (closes the
-  mobile menu before the page enters the back/forward cache; approved by the user 2026-10-08). Any
-  other script needs the user's OK.
+  The two exceptions are the ~120-byte inline `CLOSE_MENU_ON_LEAVE` script in `shell()` (closes the
+  mobile menu before the page enters the back/forward cache; approved by the user 2026-10-08), and
+  the photo pages' `PAGING` script (src/pages/photo.rs: ←/→/Esc and swipe, clicking the page's own
+  links; approved 2026-10-20). Any other script needs the user's OK.
 - Plain CSS in `style/main.css` (Lightning CSS minifies it, inlined into the HTML in production).
   No Tailwind, no Sass, no CSS-in-JS, no npm packages.
 - Fonts: body text uses the system stack (`--font-body`). Headings use Urbanist, self-hosted as one
@@ -58,8 +59,8 @@ Top priority: fastest possible load. These rules override any design skill or DE
   `drive-cache/`, git-ignored): files in `files/<album>/`, served under `/drive/` (immutable: file
   names carry a content hash), `manifest.json` next to `files/` and never served (Drive IDs).
   `src/gallery.rs` builds each project gallery from the album, or from the Markdown images until the
-  album has photos. Photo pages: `/projektek/<project>/kep/<slug>` (`src/pages/photo.rs`), rendered
-  per request. Browsers never contact Google. Credentials (service-account key, API key) come from
+  album has photos. Photo pages: `/projektek/<project>/kep/<slug>` and `/rolunk/kep/<slug>`
+  (`src/pages/photo.rs`), rendered per request; every gallery tile opens one, never a bare image file. Browsers never contact Google. Credentials (service-account key, API key) come from
   the environment only; never commit them.
 - UI text is Hungarian. Code, comments and identifiers are English.
 

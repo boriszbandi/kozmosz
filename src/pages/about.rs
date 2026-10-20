@@ -41,7 +41,7 @@ pub fn About() -> impl IntoView {
                 <h2 class="section-title">{s.heading.clone()}</h2>
                 {s.blocks.iter().map(|b| match b {
                     Block::Images(images) => view! {
-                        <Gallery tiles=images.iter().filter_map(Tile::from_ref).collect()/>
+                        <Gallery tiles=images.iter().filter_map(|i| Tile::from_ref(i, &page.route)).collect()/>
                     }
                     .into_any(),
                     Block::Html(_) => view! { <Blocks blocks=std::slice::from_ref(b)/> }.into_any(),

@@ -21,7 +21,7 @@ use leptos::prelude::*;
 use crate::{
     content::{Block, Doc},
     layout::PageMeta,
-    media::{Gallery, Picture, Tile},
+    media::Picture,
 };
 
 /// Metadata of a content page.
@@ -30,26 +30,23 @@ fn DocMeta(doc: &'static Doc) -> impl IntoView {
     view! { <PageMeta title=doc.title.clone() description=doc.description.clone() path=doc.route.clone()/> }
 }
 
-/// Renders blocks as prose: HTML as is, single images as figures, image runs as a gallery.
+/// Renders blocks as prose: HTML as is, images as figures. Galleries, whose tiles open photo
+/// pages, are built by the pages that have photo pages (About, Project).
 #[component]
 fn Blocks(blocks: &'static [Block]) -> impl IntoView {
     blocks
         .iter()
         .map(|block| match block {
             Block::Html(html) => view! { <div class="prose" inner_html=html.clone()></div> }.into_any(),
-            Block::Images(images) if images.len() == 1 => view! {
-                <figure class="figure">
-                    <Picture
-                        key=images[0].key.clone()
-                        alt=images[0].alt.clone()
-                        sizes="(width > 1100px) 1040px, 92vw"
-                    />
-                </figure>
-            }
-            .into_any(),
-            Block::Images(images) => {
-                view! { <Gallery tiles=images.iter().filter_map(Tile::from_ref).collect()/> }.into_any()
-            }
+            Block::Images(images) => images
+                .iter()
+                .map(|image| view! {
+                    <figure class="figure">
+                        <Picture key=image.key.clone() alt=image.alt.clone() sizes="(width > 1100px) 1040px, 92vw"/>
+                    </figure>
+                })
+                .collect_view()
+                .into_any(),
         })
         .collect_view()
 }

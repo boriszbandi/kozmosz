@@ -44,7 +44,7 @@ pub fn Header() -> impl IntoView {
         <header class="site-header">
             <div class="container header-inner">
                 <a href="/" class="brand">
-                    <img src="/img/kozmosz-mark.svg" alt="" width="36" height="36"/>
+                    <img src="/img/kozmosz-logo.svg" alt="" width="43" height="40"/>
                     <span>{site::SHORT_NAME}</span>
                 </a>
                 <nav class="nav-desktop" aria-label="Főmenü">
@@ -114,7 +114,7 @@ pub fn Footer() -> impl IntoView {
         <footer class="site-footer">
             <div class="container footer-inner">
                 <a class="footer-brand" href="/">
-                    <img src="/img/kozmosz-mark.svg" alt="" width="32" height="32"/>
+                    <img src="/img/kozmosz-logo.svg" alt="" width="43" height="40"/>
                     {site::NAME}
                 </a>
                 <address class="footer-contact">

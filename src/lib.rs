@@ -16,6 +16,8 @@ mod pages;
 mod site;
 
 #[cfg(feature = "ssr")]
+mod purge;
+#[cfg(feature = "ssr")]
 pub mod server;
 
 /// WASM entry point. In islands mode only `#[island]` components are hydrated;

@@ -17,7 +17,9 @@ CARGO_LEPTOS_VERSION=0.3.11
 
 [ "$(id -u)" -ne 0 ] || die "Ne rootként futtasd, hanem a saját felhasználóddal (sudo joggal)."
 command -v sudo >/dev/null || die "Kell a sudo: rootként apt install sudo, majd usermod -aG sudo <felhasználó>, és jelentkezz be újra."
-sudo -v
+# Asks for the password now (if needed) rather than in the middle. Not `sudo -v`: that demands a
+# password even with a NOPASSWD rule when the sudo group's own rule also matches.
+sudo true
 
 if [ -r /etc/os-release ]; then
     # shellcheck source=/dev/null
@@ -62,7 +64,11 @@ rustup target add wasm32-unknown-unknown
 if cargo leptos --version 2>/dev/null | grep -qF "$CARGO_LEPTOS_VERSION"; then
     ok "cargo-leptos $CARGO_LEPTOS_VERSION már megvan."
 else
-    cargo install cargo-leptos --version "$CARGO_LEPTOS_VERSION" --locked
+    # Built on disk: cargo install would use /tmp, which Debian 13 keeps in memory (half the RAM),
+    # and this build needs more than that.
+    build_dir="$HOME/.cache/cargo-leptos-build"
+    cargo install cargo-leptos --version "$CARGO_LEPTOS_VERSION" --locked --target-dir "$build_dir"
+    rm -rf "$build_dir"
 fi
 
 step "Szolgáltatás és beállítások"

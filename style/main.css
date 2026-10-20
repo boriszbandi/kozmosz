@@ -484,8 +484,8 @@ figure {
 }
 
 .brand img {
-  width: 32px;
-  height: 32px;
+  width: 43px;
+  height: 40px;
 }
 
 /* Liquid Glass chips in the header (same material as .button, darker tint so text stays
@@ -2179,8 +2179,8 @@ body:has(.contact) .footer-contact {
 }
 
 .footer-brand img {
-  width: 32px;
-  height: 32px;
+  width: 43px;
+  height: 40px;
 }
 
 .footer-contact {

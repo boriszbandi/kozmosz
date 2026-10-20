@@ -1,6 +1,7 @@
-//! One gallery photo, large: /projektek/<project>/kep/<slug>. Zero JavaScript: previous/next are
-//! links (prefetched by the speculation rules), and the tile morphs into the large photo through
-//! a cross-document view transition (style/main.css, "Photo page").
+//! One gallery photo, large: /projektek/<project>/kep/<slug> or /rolunk/kep/<slug>. Previous/next
+//! are links (prefetched by the speculation rules), and the tile morphs into the large photo
+//! through a cross-document view transition (style/main.css, "Photo page"). The only script,
+//! [`PAGING`], adds keys and swipes on top of those links.
 
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
@@ -14,11 +15,20 @@ use crate::{
     media::{Caption, Icon, Responsive},
 };
 
+/// Paging without the mouse (approved by the user 2026-10-20): ← and → open the previous and
+/// next photo, Esc goes back to the gallery, and a horizontal one-finger swipe pages (not while
+/// pinch-zoomed, so panning a zoomed photo never pages). It only clicks the page's own links.
+const PAGING: &str = r#"(()=>{const go=s=>{const a=document.querySelector(s);a&&a.click()},keys={ArrowLeft:"a[rel=prev]",ArrowRight:"a[rel=next]",Escape:".photo-back"};addEventListener("keydown",e=>{const s=keys[e.key];s&&!(e.altKey||e.ctrlKey||e.metaKey||e.shiftKey||e.defaultPrevented)&&go(s)});let x=null,y=0;addEventListener("touchstart",e=>{const t=e.touches;x=t.length<2?t[0].clientX:null;y=t[0].clientY},{passive:true});addEventListener("touchend",e=>{if(x==null||e.touches.length||window.visualViewport?.scale>1.01)return;const t=e.changedTouches[0],dx=t.clientX-x;x=null;Math.abs(dx)>60&&Math.abs(dx)>2*Math.abs(t.clientY-y)&&go(dx<0?"a[rel=next]":"a[rel=prev]")},{passive:true})})()"#;
+
 #[component]
-pub fn PhotoPage() -> impl IntoView {
+pub fn PhotoPage(
+    /// Content page whose gallery this is; project photo pages take it from the URL instead.
+    #[prop(optional)]
+    page: Option<&'static str>,
+) -> impl IntoView {
     let (project, slug) = use_params_map().with_untracked(|p| (p.get("project").unwrap_or_default(), p.get("slug").unwrap_or_default()));
-    let page = format!("projektek-{project}");
-    let Some(&page) = PROJECTS.iter().find(|&&p| p == page) else { return view! { <NotFound/> }.into_any() };
+    let page = page.or_else(|| PROJECTS.iter().copied().find(|&p| p.strip_prefix("projektek-") == Some(project.as_str())));
+    let Some(page) = page else { return view! { <NotFound/> }.into_any() };
     let shots = gallery::shots(page);
     let Some(index) = shots.iter().position(|s| s.slug == slug) else { return view! { <NotFound/> }.into_any() };
     let doc = doc(page);
@@ -103,6 +113,7 @@ pub fn PhotoPage() -> impl IntoView {
                     {detail.map(|d| view! { <p aria-hidden="true">{d}</p> })}
                 </figcaption>
             </figure>
+            <script inner_html=PAGING></script>
         </article>
     }
     .into_any()

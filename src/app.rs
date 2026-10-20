@@ -35,11 +35,11 @@ const ISLAND_PAGES: &[&str] = &[];
 /// elsewhere). On photo pages the previous and next photo pages are prefetched right away, and
 /// photo pages are prerendered on hover, so the tile-to-photo morph lands on a decoded image.
 /// /img/ and /drive/ are excluded: some gallery links point at full-size JPEGs.
-const SPECULATION_RULES: &str = r#"{"prefetch":[{"where":{"selector_matches":"a[rel=next], a[rel=prev]"},"eagerness":"eager"},{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/img/*","/drive/*"]}}]},"eagerness":"moderate"}],"prerender":[{"where":{"or":[{"href_matches":"/projektek/*/kep/*"},{"selector_matches":"a[rel=next], a[rel=prev]"}]},"eagerness":"moderate"},{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/img/*","/drive/*"]}}]},"eagerness":"conservative"}]}"#;
+const SPECULATION_RULES: &str = r#"{"prefetch":[{"where":{"selector_matches":"a[rel=next], a[rel=prev]"},"eagerness":"eager"},{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/img/*","/drive/*"]}}]},"eagerness":"moderate"}],"prerender":[{"where":{"or":[{"href_matches":["/projektek/*/kep/*","/rolunk/kep/*"]},{"selector_matches":"a[rel=next], a[rel=prev]"}]},"eagerness":"moderate"},{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/img/*","/drive/*"]}}]},"eagerness":"conservative"}]}"#;
 
-/// The only inline script (approved by the user 2026-10-08): the mobile menu is a <details>, and a
-/// page restored from the back/forward cache would come back with the menu still open. Closing it
-/// on pagehide stores the closed state, so nothing flickers on restore.
+/// The only script on every page (approved by the user 2026-10-08): the mobile menu is a
+/// <details>, and a page restored from the back/forward cache would come back with the menu still
+/// open. Closing it on pagehide stores the closed state, so nothing flickers on restore.
 const CLOSE_MENU_ON_LEAVE: &str =
     r#"addEventListener("pagehide",()=>{for(const d of document.querySelectorAll(".nav-mobile details[open]"))d.open=false})"#;
 
@@ -52,6 +52,9 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
             <head>
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                // Title, description, canonical, Open Graph and image preloads: first, so the
+                // preload scanner sees the hero image before the inline stylesheet.
+                <MetaTags/>
                 <meta name="theme-color" content="#0a0c0f"/>
                 <link rel="icon" href="/favicon.ico" sizes="32x32"/>
                 <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
@@ -63,7 +66,6 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                 <script inner_html=CLOSE_MENU_ON_LEAVE></script>
                 <AutoReload options=options.clone()/>
                 {islands.then(|| view! { <HydrationScripts options islands=true/> })}
-                <MetaTags/>
             </head>
             <body>
                 <App/>
@@ -137,7 +139,8 @@ pub fn App() -> impl IntoView {
                         view=|| view! { <Project name="projektek-idojaras-muhold"/> }
                     />
                     // One gallery photo, large (rendered per request: the galleries follow Drive).
-                    <Route path=path!("/projektek/:project/kep/:slug") view=PhotoPage/>
+                    <Route path=path!("/projektek/:project/kep/:slug") view=|| view! { <PhotoPage/> }/>
+                    <Route path=path!("/rolunk/kep/:slug") view=|| view! { <PhotoPage page="rolunk"/> }/>
                 </Routes>
             </main>
             <Footer/>
