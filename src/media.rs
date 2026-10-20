@@ -3,7 +3,7 @@
 use leptos::prelude::*;
 use leptos_meta::Link;
 
-use crate::{content::ImageRef, images};
+use crate::{content::ImageRef, gallery, images};
 
 /// A responsive image: `<base>-<w>.avif` and `<base>-<w>.jpg` for every width. Either generated
 /// by tools/images.py (under /img/, see [`Img::by_key`]) or synced from Drive (under /drive/).
@@ -154,7 +154,7 @@ fn tile_sizes(ratio: f32, few: bool) -> String {
 pub struct Tile {
     pub img: Img,
     pub alt: String,
-    /// Where the image links: its photo page, or the largest JPEG.
+    /// Where the image links: its photo page.
     pub href: String,
     /// `id` of the tile, so a link can return to it (`…#kep-<slug>`).
     pub id: Option<String>,
@@ -162,10 +162,17 @@ pub struct Tile {
 }
 
 impl Tile {
-    /// A tile for a Markdown image that links to its largest JPEG.
-    pub fn from_ref(image: &ImageRef) -> Option<Self> {
+    /// A tile for a Markdown image of the page at `route`, linking to its photo page there.
+    pub fn from_ref(image: &ImageRef, route: &str) -> Option<Self> {
         let img = Img::by_key(&image.key)?;
-        Some(Self { href: img.src(), img, alt: image.alt.clone(), id: None, caption: None })
+        let slug = gallery::last_segment(&image.key);
+        Some(Self {
+            href: gallery::photo_href(route, slug),
+            id: Some(gallery::tile_id(slug)),
+            img,
+            alt: image.alt.clone(),
+            caption: None,
+        })
     }
 }
 

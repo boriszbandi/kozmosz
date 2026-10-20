@@ -97,7 +97,7 @@ fn shot(page: &str, slug: String, img: Img, name: &str, given: Option<String>) -
     }
 }
 
-fn last_segment(key: &str) -> &str {
+pub fn last_segment(key: &str) -> &str {
     key.rsplit('/').next().unwrap_or(key)
 }
 
@@ -168,5 +168,16 @@ mod tests {
         let astro = shots("projektek-asztrofotok");
         assert_eq!(astro[1].title, "Az Orion-köd (M42)");
         assert_eq!(tiles("projektek-isstv")[0].href, "/projektek/isstv/kep/20241012-125306");
+    }
+
+    #[test]
+    fn about_tiles_open_photo_pages() {
+        let page = doc("rolunk");
+        let slugs: Vec<_> = shots("rolunk").into_iter().map(|s| s.slug).collect();
+        for image in page.images() {
+            let tile = Tile::from_ref(image, &page.route).unwrap();
+            let slug = tile.href.strip_prefix("/rolunk/kep/").unwrap();
+            assert!(slugs.iter().any(|s| s == slug), "no photo page for {slug}");
+        }
     }
 }

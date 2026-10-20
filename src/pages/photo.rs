@@ -1,6 +1,6 @@
-//! One gallery photo, large: /projektek/<project>/kep/<slug>. Zero JavaScript: previous/next are
-//! links (prefetched by the speculation rules), and the tile morphs into the large photo through
-//! a cross-document view transition (style/main.css, "Photo page").
+//! One gallery photo, large: /projektek/<project>/kep/<slug> or /rolunk/kep/<slug>. Zero
+//! JavaScript: previous/next are links (prefetched by the speculation rules), and the tile morphs
+//! into the large photo through a cross-document view transition (style/main.css, "Photo page").
 
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
@@ -15,10 +15,14 @@ use crate::{
 };
 
 #[component]
-pub fn PhotoPage() -> impl IntoView {
+pub fn PhotoPage(
+    /// Content page whose gallery this is; project photo pages take it from the URL instead.
+    #[prop(optional)]
+    page: Option<&'static str>,
+) -> impl IntoView {
     let (project, slug) = use_params_map().with_untracked(|p| (p.get("project").unwrap_or_default(), p.get("slug").unwrap_or_default()));
-    let page = format!("projektek-{project}");
-    let Some(&page) = PROJECTS.iter().find(|&&p| p == page) else { return view! { <NotFound/> }.into_any() };
+    let page = page.or_else(|| PROJECTS.iter().copied().find(|&p| p.strip_prefix("projektek-") == Some(project.as_str())));
+    let Some(page) = page else { return view! { <NotFound/> }.into_any() };
     let shots = gallery::shots(page);
     let Some(index) = shots.iter().position(|s| s.slug == slug) else { return view! { <NotFound/> }.into_any() };
     let doc = doc(page);

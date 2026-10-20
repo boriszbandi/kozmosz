@@ -58,8 +58,8 @@ Top priority: fastest possible load. These rules override any design skill or DE
   `drive-cache/`, git-ignored): files in `files/<album>/`, served under `/drive/` (immutable: file
   names carry a content hash), `manifest.json` next to `files/` and never served (Drive IDs).
   `src/gallery.rs` builds each project gallery from the album, or from the Markdown images until the
-  album has photos. Photo pages: `/projektek/<project>/kep/<slug>` (`src/pages/photo.rs`), rendered
-  per request. Browsers never contact Google. Credentials (service-account key, API key) come from
+  album has photos. Photo pages: `/projektek/<project>/kep/<slug>` and `/rolunk/kep/<slug>`
+  (`src/pages/photo.rs`), rendered per request; every gallery tile opens one, never a bare image file. Browsers never contact Google. Credentials (service-account key, API key) come from
   the environment only; never commit them.
 - UI text is Hungarian. Code, comments and identifiers are English.
 
