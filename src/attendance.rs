@@ -9,8 +9,9 @@
 //! - The QR link's token is a tag of the event ([`admin::tag`]): unguessable, nothing to store,
 //!   and void once admin.key is deleted. So is the export link's key.
 //! - A sheet takes names from an hour before the event until three hours after it.
-//! - Each event's names are a small JSON file in the state directory (jelenlet/<event>.json), so
-//!   a sheet stays listed after its event has left the calendar.
+//! - Each event's names are a small JSON file in the state directory (jelenlet/<event>.json),
+//!   written when its QR code is first shown. It holds the event too, so the code keeps working
+//!   and the sheet stays listed after the event has left the calendar (owner's request).
 //! - After signing, the phone keeps a ticket (a tagged cookie) that shows "Kitöltve".
 
 use std::{
@@ -70,8 +71,12 @@ struct Sheet {
     title: String,
     /// When the event was, as the dashboard shows it.
     when: String,
-    /// Start, Unix seconds (for sorting).
+    /// Start, Unix seconds.
     start: i64,
+    /// End, Unix seconds (after the last day for all-day events). Sheets written before it was
+    /// kept: two hours after the start.
+    #[serde(default)]
+    end: Option<i64>,
     names: Vec<Signed>,
 }
 
@@ -122,6 +127,42 @@ struct Row {
     count: usize,
 }
 
+/// The event a sheet is for: from the calendar, or from its sheet on disk once the calendar no
+/// longer has it (deleted, or not downloaded yet).
+struct Occasion {
+    key: String,
+    title: String,
+    when: String,
+    start: i64,
+    end: i64,
+}
+
+impl Occasion {
+    fn of_event(event: &Event) -> Self {
+        Self {
+            key: key(event),
+            title: event.title.clone(),
+            when: when(event),
+            start: unix(event.start),
+            end: unix(event.end) + if event.all_day { 24 * 3600 } else { 0 },
+        }
+    }
+
+    fn of_sheet(key: String, sheet: &Sheet) -> Self {
+        let end = sheet.end.unwrap_or(sheet.start + 2 * 3600);
+        Self { key, title: sheet.title.clone(), when: sheet.when.clone(), start: sheet.start, end }
+    }
+
+    /// Names are taken from an hour before the start until three hours after the end.
+    fn is_open(&self, now: i64) -> bool {
+        (self.start - OPENS_BEFORE..=self.end + CLOSES_AFTER).contains(&now)
+    }
+
+    fn sheet(&self) -> Sheet {
+        Sheet { title: self.title.clone(), when: self.when.clone(), start: self.start, end: Some(self.end), names: Vec::new() }
+    }
+}
+
 static MEMBERS: RwLock<Option<Arc<Members>>> = RwLock::new(None);
 /// One writer at a time: a sheet is read, extended and written back.
 static WRITING: Mutex<()> = Mutex::new(());
@@ -159,16 +200,13 @@ fn ticket(headers: &HeaderMap, key: &str) -> Option<(String, i64)> {
     ok.then_some((name, at))
 }
 
-/// The calendar event whose sheet the token `given` opens. Only real tokens pass, so a `given`
-/// that does is safe in a URL.
-fn find(given: &str) -> Option<Event> {
+/// The event whose sheet the token `given` opens: in the calendar, else on disk. Only real
+/// tokens pass, so a `given` that does is safe in a URL.
+fn find(given: &str) -> Option<Occasion> {
+    let fits = |key: &str| constant_time::verify_slices_are_equal(token(key).as_bytes(), given.as_bytes()).is_ok();
     let calendar = calendar::current();
-    calendar
-        .upcoming
-        .iter()
-        .chain(&calendar.past)
-        .find(|e| constant_time::verify_slices_are_equal(token(&key(e)).as_bytes(), given.as_bytes()).is_ok())
-        .cloned()
+    let listed = calendar.upcoming.iter().chain(&calendar.past).find(|e| fits(&key(e))).map(Occasion::of_event);
+    listed.or_else(|| stored(&dir()).into_iter().find(|(key, _)| fits(key)).map(|(key, sheet)| Occasion::of_sheet(key, &sheet)))
 }
 
 fn when(event: &Event) -> String {
@@ -195,13 +233,6 @@ fn local(at: i64, format: &str) -> String {
 
 fn clock(at: i64) -> String {
     local(at, "%H:%M")
-}
-
-/// Names are taken from an hour before the start until three hours after the end (all-day
-/// events: after their last day).
-fn is_open(event: &Event, now: i64) -> bool {
-    let end = unix(event.end) + if event.all_day { 24 * 3600 } else { 0 };
-    (unix(event.start) - OPENS_BEFORE..=end + CLOSES_AFTER).contains(&now)
 }
 
 /// A typed name, spaces tidied, if it looks like one: 2 to 60 characters, letters with spaces,
@@ -281,15 +312,10 @@ fn stored(dir: &FsPath) -> Vec<(String, Sheet)> {
 
 /// Puts `name` on the event's sheet. Someone already there (the same Discord account, or the
 /// same name ignoring case, accents and spacing) is not added again.
-fn record(dir: &FsPath, event: &Event, name: &str, discord: Option<&str>, now: i64) -> Result<(), String> {
+fn record(dir: &FsPath, occasion: &Occasion, name: &str, discord: Option<&str>, now: i64) -> Result<(), String> {
     let _one = WRITING.lock().unwrap_or_else(PoisonError::into_inner);
-    let key = key(event);
-    let mut sheet = load(dir, &key).unwrap_or_else(|| Sheet {
-        title: event.title.clone(),
-        when: when(event),
-        start: unix(event.start),
-        names: Vec::new(),
-    });
+    let key = &occasion.key;
+    let mut sheet = load(dir, key).unwrap_or_else(|| occasion.sheet());
     let folded = words(name);
     let there = |s: &Signed| (discord.is_some() && s.discord.as_deref() == discord) || words(&s.name) == folded;
     if sheet.names.iter().any(there) {
@@ -299,9 +325,24 @@ fn record(dir: &FsPath, event: &Event, name: &str, discord: Option<&str>, now: i
         return Err(format!("{key}: the sheet is full"));
     }
     sheet.names.push(Signed { name: name.to_owned(), at: now, discord: discord.map(str::to_owned) });
+    save(dir, key, &sheet)
+}
+
+fn save(dir: &FsPath, key: &str, sheet: &Sheet) -> Result<(), String> {
     std::fs::create_dir_all(dir).map_err(|e| format!("cannot create {}: {e}", dir.display()))?;
-    let json = serde_json::to_vec(&sheet).map_err(|e| e.to_string())?;
+    let json = serde_json::to_vec(sheet).map_err(|e| e.to_string())?;
     write_atomic(&dir.join(format!("{key}.json")), &json)
+}
+
+/// Writes the event's (empty) sheet when its QR code is shown, so the code keeps working even if
+/// the event leaves the calendar.
+fn keep(dir: &FsPath, occasion: &Occasion) {
+    let _one = WRITING.lock().unwrap_or_else(PoisonError::into_inner);
+    if load(dir, &occasion.key).is_none() {
+        if let Err(err) = save(dir, &occasion.key, &occasion.sheet()) {
+            error!("attendance: {err}");
+        }
+    }
 }
 
 fn members() -> Arc<Members> {
@@ -401,14 +442,14 @@ pub fn problem(given: &str, code: &str) -> Response {
 }
 
 /// Puts the name on the sheet and sends the phone back to the page with its ticket.
-fn enter(given: &str, event: &Event, name: &str, discord: Option<&str>) -> Response {
+fn enter(given: &str, occasion: &Occasion, name: &str, discord: Option<&str>) -> Response {
     let (page, now) = (format!("/jelen/{given}"), now());
-    match record(&dir(), event, name, discord, now) {
+    match record(&dir(), occasion, name, discord, now) {
         Ok(()) => {
             let mut response = Redirect::to(&page).into_response();
             let cookie = format!(
                 "{TICKET}={}; Path={page}; Max-Age=43200; HttpOnly; Secure; SameSite=Lax",
-                ticket_value(&key(event), name, now),
+                ticket_value(&occasion.key, name, now),
             );
             // Base64, digits and the token: always a valid header.
             response.headers_mut().append(header::SET_COOKIE, HeaderValue::from_str(&cookie).expect("ASCII cookie"));
@@ -423,12 +464,12 @@ fn enter(given: &str, event: &Event, name: &str, discord: Option<&str>) -> Respo
 
 /// POST /jelen/{token}: a typed name.
 pub async fn sign(Path(given): Path<String>, Form(form): Form<Signature>) -> Response {
-    let Some(event) = find(&given) else { return StatusCode::NOT_FOUND.into_response() };
-    if !is_open(&event, now()) {
+    let Some(occasion) = find(&given) else { return StatusCode::NOT_FOUND.into_response() };
+    if !occasion.is_open(now()) {
         return Redirect::to(&format!("/jelen/{given}")).into_response();
     }
     match clean_name(&form.nev) {
-        Some(name) => enter(&given, &event, &name, None),
+        Some(name) => enter(&given, &occasion, &name, None),
         None => problem(&given, "nev"),
     }
 }
@@ -436,8 +477,8 @@ pub async fn sign(Path(given): Path<String>, Form(form): Form<Signature>) -> Res
 /// GET /jelen/{token}/discord: the "Igazolás Discorddal" button, off to Discord's sign-in. The
 /// answer comes back through admin::callback to [`check_in_with`].
 pub async fn discord(State(admin): State<Arc<Admin>>, Path(given): Path<String>) -> Response {
-    let Some(event) = find(&given) else { return StatusCode::NOT_FOUND.into_response() };
-    if !is_open(&event, now()) || !admin.ready() {
+    let Some(occasion) = find(&given) else { return StatusCode::NOT_FOUND.into_response() };
+    if !occasion.is_open(now()) || !admin.ready() {
         return problem(&given, "discord");
     }
     admin::to_discord(Some(&given))
@@ -447,8 +488,8 @@ pub async fn discord(State(admin): State<Arc<Admin>>, Path(given): Path<String>)
 /// goes on the sheet under their server nickname (else their Discord name), with their user
 /// name; Discord vouches for both.
 pub fn check_in_with(given: &str, me: &Me, member: Option<&Member>) -> Response {
-    let Some(event) = find(given) else { return Redirect::to("/").into_response() };
-    if !is_open(&event, now()) {
+    let Some(occasion) = find(given) else { return Redirect::to("/").into_response() };
+    if !occasion.is_open(now()) {
         return Redirect::to(&format!("/jelen/{given}")).into_response();
     }
     let Some(member) = member.filter(|m| m.has_a_role()) else {
@@ -457,7 +498,7 @@ pub fn check_in_with(given: &str, me: &Me, member: Option<&Member>) -> Response 
     };
     let shown = member.nick.as_deref().or(me.global_name.as_deref()).unwrap_or(&me.username);
     let name: String = shown.trim().chars().take(60).collect();
-    enter(given, &event, &name, Some(&me.username.to_lowercase()))
+    enter(given, &occasion, &name, Some(&me.username.to_lowercase()))
 }
 
 /// A CSV field: quoted, and never read as a formula (a Discord nickname could start with "=").
@@ -528,23 +569,23 @@ pub async fn export(Query(given): Query<ExportKey>) -> Response {
     ([(header::CONTENT_TYPE, "text/csv; charset=utf-8")], out).into_response()
 }
 
-fn row(dir: &FsPath, event: &Event, now: i64) -> Row {
-    let key = key(event);
-    let count = load(dir, &key).map_or(0, |s| s.names.len());
-    Row { title: event.title.clone(), when: when(event), open: is_open(event, now), count, key }
+fn row(dir: &FsPath, occasion: Occasion, now: i64) -> Row {
+    let count = load(dir, &occasion.key).map_or(0, |s| s.names.len());
+    let open = occasion.is_open(now);
+    Row { key: occasion.key, title: occasion.title, when: occasion.when, open, count }
 }
 
 /// /admin: the sheets of the coming events, then of the earlier ones (the calendar's recent past
 /// and every older sheet on disk), and the formula that brings them all into Google Sheets.
 pub fn events_page() -> AnyView {
     let (calendar, dir, now) = (calendar::current(), dir(), now());
-    let coming: Vec<Row> = calendar.upcoming.iter().take(10).map(|e| row(&dir, e, now)).collect();
-    let mut earlier: Vec<(i64, Row)> = calendar.past.iter().map(|e| (unix(e.start), row(&dir, e, now))).collect();
+    let coming: Vec<Row> = calendar.upcoming.iter().take(10).map(|e| row(&dir, Occasion::of_event(e), now)).collect();
+    let mut earlier: Vec<(i64, Row)> =
+        calendar.past.iter().map(|e| (unix(e.start), row(&dir, Occasion::of_event(e), now))).collect();
     let listed: HashSet<String> = coming.iter().chain(earlier.iter().map(|(_, r)| r)).map(|r| r.key.clone()).collect();
     for (key, sheet) in stored(&dir) {
         if !listed.contains(&key) {
-            let row = Row { title: sheet.title, when: sheet.when, open: false, count: sheet.names.len(), key };
-            earlier.push((sheet.start, row));
+            earlier.push((sheet.start, row(&dir, Occasion::of_sheet(key, &sheet), now)));
         }
     }
     earlier.sort_by_key(|(start, _)| Reverse(*start));
@@ -602,26 +643,26 @@ fn qr_svg(link: &str) -> Option<String> {
 pub fn event_page(key: &str) -> AnyView {
     let (dir, now) = (dir(), now());
     let valid = valid_key(key);
-    let event = valid
-        .then(|| {
-            let calendar = calendar::current();
-            calendar.upcoming.iter().chain(&calendar.past).find(|e| self::key(e) == key).cloned()
-        })
-        .flatten();
     let sheet = valid.then(|| load(&dir, key)).flatten();
-    let (title, when) = match (&event, &sheet) {
-        (Some(event), _) => (event.title.clone(), when(event)),
-        (None, Some(sheet)) => (sheet.title.clone(), sheet.when.clone()),
-        (None, None) => return view! { <NotFound/> }.into_any(),
+    let calendar = calendar::current();
+    let listed = calendar.upcoming.iter().chain(&calendar.past).find(|e| self::key(e) == key).map(Occasion::of_event);
+    let occasion = match (valid, listed, &sheet) {
+        (false, _, _) => None,
+        (true, Some(listed), _) => Some(listed),
+        (true, None, sheet) => sheet.as_ref().map(|sheet| Occasion::of_sheet(key.to_owned(), sheet)),
     };
-    let state = match &event {
-        Some(event) if is_open(event, now) => "Nyitva: most lehet beírni a neveket.",
-        Some(event) if now < unix(event.start) => "Az esemény előtt egy órával nyílik.",
-        Some(_) => "Lezárva.",
-        None => "Lezárva, az esemény már nincs a naptárban.",
+    let Some(occasion) = occasion else { return view! { <NotFound/> }.into_any() };
+    keep(&dir, &occasion);
+    let state = if occasion.is_open(now) {
+        "Nyitva: most lehet beírni a neveket."
+    } else if now < occasion.start {
+        "Az esemény előtt egy órával nyílik."
+    } else {
+        "Lezárva."
     };
-    let link = event.as_ref().map(|_| format!("{}/jelen/{}", site::ORIGIN, token(key)));
-    let qr = link.as_deref().and_then(qr_svg).zip(link.clone());
+    let (title, when) = (occasion.title.clone(), occasion.when.clone());
+    let link = format!("{}/jelen/{}", site::ORIGIN, token(key));
+    let qr = qr_svg(&link).map(|svg| (svg, link));
     let members = members();
     let names = sheet.map(|s| s.names).unwrap_or_default();
     let listed: Vec<(String, Option<String>, Option<String>, String)> = names
@@ -687,10 +728,10 @@ pub fn event_page(key: &str) -> AnyView {
 /// `problem` after a refused try: "nev" (not a name), "discord" (the Discord sign-in failed),
 /// "tag" (no role on the club's server), "mentes" (could not save).
 pub fn check_in_page(given: &str, problem: Option<&str>) -> AnyView {
-    let Some(event) = find(given) else { return view! { <NotFound/> }.into_any() };
-    let open = is_open(&event, now());
+    let Some(occasion) = find(given) else { return view! { <NotFound/> }.into_any() };
+    let open = occasion.is_open(now());
     let headers = use_context::<Parts>().map(|parts| parts.headers).unwrap_or_default();
-    let ticket = ticket(&headers, &key(&event));
+    let ticket = ticket(&headers, &occasion.key);
     let problem = problem.map(|p| match p {
         "nev" => "Írd be a teljes neved: legalább 2, legfeljebb 60 betű.",
         "discord" => "A Discordos igazolás most nem sikerült. Írd be a teljes neved.",
@@ -703,7 +744,7 @@ pub fn check_in_page(given: &str, problem: Option<&str>) -> AnyView {
                 <div class="liftoff" inner_html=LIFTOFF></div>
                 <p class="ticket-ok">"Kitöltve"</p>
                 <p class="ticket-name">{name}</p>
-                <p class="ticket-meta">{event.title.clone()} " · " <span class="mono">{clock(at)}</span></p>
+                <p class="ticket-meta">{occasion.title.clone()} " · " <span class="mono">{clock(at)}</span></p>
             </div>
         }
         .into_any()
@@ -741,8 +782,8 @@ pub fn check_in_page(given: &str, problem: Option<&str>) -> AnyView {
     view! {
         <Title text="Jelenléti ív"/>
         <Meta name="robots" content="noindex"/>
-        <PageHeader title=event.title.clone()>
-            <p class="page-lead">{when(&event)}</p>
+        <PageHeader title=occasion.title.clone()>
+            <p class="page-lead">{occasion.when.clone()}</p>
         </PageHeader>
         <section class="container page-body">{body}</section>
     }
@@ -796,12 +837,16 @@ mod tests {
     #[test]
     fn sheets_open_an_hour_before_and_close_three_hours_after() {
         let e = event("Csillagászati est", (18, 20));
-        assert!(!is_open(&e, unix(e.start) - OPENS_BEFORE - 1));
-        assert!(is_open(&e, unix(e.start) - OPENS_BEFORE));
-        assert!(is_open(&e, unix(e.end) + CLOSES_AFTER));
-        assert!(!is_open(&e, unix(e.end) + CLOSES_AFTER + 1));
+        let o = Occasion::of_event(&e);
+        assert!(!o.is_open(unix(e.start) - OPENS_BEFORE - 1));
+        assert!(o.is_open(unix(e.start) - OPENS_BEFORE));
+        assert!(o.is_open(unix(e.end) + CLOSES_AFTER));
+        assert!(!o.is_open(unix(e.end) + CLOSES_AFTER + 1));
         // 18:00 in Budapest summer time is 16:00 UTC.
         assert_eq!(unix(e.start) % 86_400, 16 * 3600);
+        // Off the calendar, the sheet on disk keeps the same hours.
+        let kept = Occasion::of_sheet(o.key.clone(), &o.sheet());
+        assert_eq!((kept.start, kept.end, kept.title.as_str()), (o.start, o.end, "Csillagászati est"));
     }
 
     #[test]
@@ -855,12 +900,15 @@ mod tests {
     #[test]
     fn a_name_goes_on_the_sheet_once() {
         let dir = std::env::temp_dir().join(format!("kozmosz-jelenlet-{}", std::process::id()));
-        let e = event("Teszt", (18, 20));
+        let e = Occasion::of_event(&event("Teszt", (18, 20)));
+        keep(&dir, &e);
+        assert!(load(&dir, &e.key).unwrap().names.is_empty(), "kept when its QR code is shown");
         record(&dir, &e, "Kovács Anna", None, 1).unwrap();
         record(&dir, &e, "kovacs  ANNA", None, 2).unwrap();
         record(&dir, &e, "Máté", Some("vmate04"), 3).unwrap();
         record(&dir, &e, "Végh Máté", Some("vmate04"), 4).unwrap();
-        let sheet = load(&dir, &key(&e)).unwrap();
+        keep(&dir, &e);
+        let sheet = load(&dir, &e.key).unwrap();
         assert_eq!(sheet.names.iter().map(|s| s.name.as_str()).collect::<Vec<_>>(), ["Kovács Anna", "Máté"]);
         assert_eq!(stored(&dir).len(), 1);
         std::fs::remove_dir_all(&dir).unwrap();

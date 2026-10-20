@@ -1,6 +1,6 @@
 //! Downloading the feed and turning it into the [`Calendar`] the programs page shows.
 
-use std::{sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use jiff::{tz::TimeZone, SignedDuration, Timestamp};
 use leptos::logging::{error, log};
@@ -66,16 +66,32 @@ impl Feed {
     /// caught and logged (the previous data stays) instead of killing the server at startup or
     /// ending the refresh loop.
     pub async fn refresh(&mut self, timeout: Duration) {
-        let parsed = match self.download(timeout).await {
+        let body = match self.download(timeout).await {
             Ok(body) => {
+                if let Some(path) = cache_path() {
+                    if let Err(err) = crate::drive::write_atomic(&path, &body) {
+                        error!("calendar: {err}");
+                    }
+                }
+                Some(body)
+            }
+            // Started while Google is unreachable: the copy on disk, if there is one.
+            Err(err) if self.events.is_none() => {
+                let cached = cache_path().and_then(|path| std::fs::read(path).ok());
+                error!("calendar: {err}; {}", if cached.is_some() { "using the copy on disk" } else { "no data yet" });
+                cached
+            }
+            Err(err) => {
+                error!("calendar: {err}; keeping the previous data");
+                None
+            }
+        };
+        let parsed = match body {
+            Some(body) => {
                 let zone = self.zone.clone();
                 off_thread("parsing the feed", move || ical::parse(&body, &zone)).await
             }
-            Err(err) => {
-                let keeping = if self.events.is_some() { "keeping the previous data" } else { "no data yet" };
-                error!("calendar: {err}; {keeping}");
-                None
-            }
+            None => None,
         };
         if let Some(parsed) = parsed {
             let mut summary = format!("{} events in the feed", parsed.events.len());
@@ -128,6 +144,13 @@ impl Feed {
         }
         Ok(body)
     }
+}
+
+/// The last good feed, kept in the service's state directory (systemd's STATE_DIRECTORY), so a
+/// restart while Google is unreachable still has the events, and with them the attendance
+/// sheets' QR links. Local runs keep none.
+fn cache_path() -> Option<PathBuf> {
+    std::env::var_os("STATE_DIRECTORY").map(|dir| PathBuf::from(dir).join("calendar.ics"))
 }
 
 /// Runs CPU work on the blocking pool, off the async workers. None (logged) if it panicked.
