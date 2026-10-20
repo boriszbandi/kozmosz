@@ -352,13 +352,15 @@ pub async fn sign(Path(given): Path<String>, Form(form): Form<Signature>) -> Res
 /// GET /admin/jelenlet/{key}/csv (behind admin::guard): the names and their members, the way
 /// Hungarian Excel opens a CSV (semicolons, byte-order mark).
 pub async fn csv(Path(key): Path<String>) -> Response {
-    let Some(sheet) = valid_key(&key).then(|| load(&dir(), &key)).flatten() else {
+    if !valid_key(&key) {
         return StatusCode::NOT_FOUND.into_response();
-    };
+    }
+    // No file yet: nobody has signed, an empty table.
+    let names = load(&dir(), &key).map(|s| s.names).unwrap_or_default();
     let members = members();
     let field = |s: &str| format!("\"{}\"", s.replace('"', "\"\""));
     let mut out = String::from("\u{feff}Név;Tag;Időpont\r\n");
-    for s in &sheet.names {
+    for s in &names {
         let matched = member(&s.name, &members.names).unwrap_or_default();
         out.push_str(&format!("{};{};{}\r\n", field(&s.name), field(matched), clock(s.at)));
     }

@@ -17,8 +17,9 @@ use crate::{
 
 /// Paging without the mouse (approved by the user 2026-10-20): ← and → open the previous and
 /// next photo, Esc goes back to the gallery, and a horizontal one-finger swipe pages (not while
-/// pinch-zoomed, so panning a zoomed photo never pages). It only clicks the page's own links.
-const PAGING: &str = r#"(()=>{const go=s=>{const a=document.querySelector(s);a&&a.click()},keys={ArrowLeft:"a[rel=prev]",ArrowRight:"a[rel=next]",Escape:".photo-back"};addEventListener("keydown",e=>{const s=keys[e.key];s&&!(e.altKey||e.ctrlKey||e.metaKey||e.shiftKey||e.defaultPrevented)&&go(s)});let x=null,y=0;addEventListener("touchstart",e=>{const t=e.touches;x=t.length<2?t[0].clientX:null;y=t[0].clientY},{passive:true});addEventListener("touchend",e=>{if(x==null||e.touches.length||window.visualViewport?.scale>1.01)return;const t=e.changedTouches[0],dx=t.clientX-x;x=null;Math.abs(dx)>60&&Math.abs(dx)>2*Math.abs(t.clientY-y)&&go(dx<0?"a[rel=next]":"a[rel=prev]")},{passive:true})})()"#;
+/// pinch-zoomed, so panning a zoomed photo never pages). It only clicks the page's own links,
+/// and does nothing while the mobile menu is open or the focus is in the header.
+const PAGING: &str = r#"(()=>{const go=s=>{const a=!document.querySelector(".site-header :focus,.nav-mobile [open]")&&document.querySelector(s);a&&a.click()},keys={ArrowLeft:"a[rel=prev]",ArrowRight:"a[rel=next]",Escape:".photo-back"};addEventListener("keydown",e=>{const s=keys[e.key];s&&!(e.altKey||e.ctrlKey||e.metaKey||e.shiftKey||e.defaultPrevented)&&go(s)});let x=null,y=0;addEventListener("touchstart",e=>{const t=e.touches;x=t.length<2?t[0].clientX:null;y=t[0].clientY},{passive:true});addEventListener("touchend",e=>{if(x==null||e.touches.length||window.visualViewport?.scale>1.01)return;const t=e.changedTouches[0],dx=t.clientX-x;x=null;Math.abs(dx)>60&&Math.abs(dx)>2*Math.abs(t.clientY-y)&&go(dx<0?"a[rel=next]":"a[rel=prev]")},{passive:true})})()"#;
 
 #[component]
 pub fn PhotoPage(
