@@ -7,7 +7,9 @@ use leptos_router::{
 
 use crate::{
     layout::{Footer, Header},
-    pages::{About, Contact, Home, Lecturers, NotFound, PhotoPage, Programs, Project, Projects},
+    pages::{
+        About, AdminPage, Contact, Home, Lecturers, NotFound, PhotoPage, Programs, Project, Projects, SignInRefused,
+    },
     site,
 };
 
@@ -34,8 +36,9 @@ const ISLAND_PAGES: &[&str] = &[];
 /// Prefetch same-origin page links on hover, prerender on pointerdown (Chromium; ignored
 /// elsewhere). On photo pages the previous and next photo pages are prefetched right away, and
 /// photo pages are prerendered on hover, so the tile-to-photo morph lands on a decoded image.
-/// /img/ and /drive/ are excluded: some gallery links point at full-size JPEGs.
-const SPECULATION_RULES: &str = r#"{"prefetch":[{"where":{"selector_matches":"a[rel=next], a[rel=prev]"},"eagerness":"eager"},{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/img/*","/drive/*"]}}]},"eagerness":"moderate"}],"prerender":[{"where":{"or":[{"href_matches":["/projektek/*/kep/*","/rolunk/kep/*"]},{"selector_matches":"a[rel=next], a[rel=prev]"}]},"eagerness":"moderate"},{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/img/*","/drive/*"]}}]},"eagerness":"conservative"}]}"#;
+/// Never fetched ahead: files under /img/ and /drive/, and /belepes, which starts a Discord
+/// sign-in.
+const SPECULATION_RULES: &str = r#"{"prefetch":[{"where":{"selector_matches":"a[rel=next], a[rel=prev]"},"eagerness":"eager"},{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/img/*","/drive/*","/belepes*"]}}]},"eagerness":"moderate"}],"prerender":[{"where":{"or":[{"href_matches":["/projektek/*/kep/*","/rolunk/kep/*"]},{"selector_matches":"a[rel=next], a[rel=prev]"}]},"eagerness":"moderate"},{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/img/*","/drive/*","/belepes*"]}}]},"eagerness":"conservative"}]}"#;
 
 /// The only script on every page (approved by the user 2026-10-08): the mobile menu is a
 /// <details>, and a page restored from the back/forward cache would come back with the menu still
@@ -141,6 +144,9 @@ pub fn App() -> impl IntoView {
                     // One gallery photo, large (rendered per request: the galleries follow Drive).
                     <Route path=path!("/projektek/:project/kep/:slug") view=|| view! { <PhotoPage/> }/>
                     <Route path=path!("/rolunk/kep/:slug") view=|| view! { <PhotoPage page="rolunk"/> }/>
+                    // Admins only: the sign-in itself is plain axum (src/admin.rs).
+                    <Route path=path!("/admin") view=AdminPage/>
+                    <Route path=path!("/belepes/hiba") view=SignInRefused/>
                 </Routes>
             </main>
             <Footer/>

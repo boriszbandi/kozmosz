@@ -16,6 +16,8 @@ mod pages;
 mod site;
 
 #[cfg(feature = "ssr")]
+pub mod admin;
+#[cfg(feature = "ssr")]
 mod purge;
 #[cfg(feature = "ssr")]
 pub mod server;

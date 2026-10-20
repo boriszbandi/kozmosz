@@ -76,7 +76,7 @@ sudo install -d -m 755 /etc/kozmosz
 if [ -e /etc/kozmosz/kozmosz.env ]; then
     ok "/etc/kozmosz/kozmosz.env már megvan, nem írom felül."
 else
-    sudo install -m 644 "$REPO_DIR/deploy/kozmosz.env" /etc/kozmosz/kozmosz.env
+    sudo install -m 600 "$REPO_DIR/deploy/kozmosz.env" /etc/kozmosz/kozmosz.env
 fi
 sudo install -m 644 "$REPO_DIR/deploy/kozmosz.service" /etc/systemd/system/kozmosz.service
 sudo systemctl daemon-reload

@@ -29,7 +29,7 @@ flate2 = { version = "1", optional = true }
 # Programs page: the club's public Google Calendar feed is fetched and parsed on the server.
 # rustls (aws-lc-rs + the OS certificate store), gzip for the feed; no HTTP/2, proxy or charset support.
 # json + query: the Drive API (src/drive/).
-reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "gzip", "json", "query"], optional = true }
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "gzip", "json", "query", "form"], optional = true }
 # Time zones for the feed (Europe/Budapest DST). The tzdb is compiled in, so the server does not
 # depend on the host's /usr/share/zoneinfo (Windows and minimal containers have none).
 jiff = { version = "0.2.38", default-features = false, features = ["std", "tzdb-bundle-always"], optional = true }

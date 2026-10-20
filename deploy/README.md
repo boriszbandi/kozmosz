@@ -73,6 +73,8 @@ A régi WordPress-címek (például `/asztrofotoink/`) maguktól átirányítana
 | `/opt/kozmosz.prev` | az előző verzió (visszaálláshoz) |
 | `/etc/kozmosz/kozmosz.env` | beállítások (Leptos, Drive) |
 | `/var/lib/kozmosz/drive-cache` | a Drive-galériák kódolt képei. Megmarad frissítéskor és újraindításkor. |
+| `/var/lib/kozmosz/admin.key` | az admin-belépések aláírókulcsa (törlése mindenkit kiléptet) |
+| `/etc/kozmosz/admin.md` | az admin oldal szövege |
 | `/etc/caddy/Caddyfile` | a Caddy beállítása |
 
 A szolgáltatás egy ideiglenes, jogok nélküli felhasználóként fut. Csak a `/var/lib/kozmosz` könyvtárba írhat, és csak a gépen belülről érhető el (`127.0.0.1:3000`). Kívülről csak a Caddyn keresztül lehet elérni.
@@ -95,6 +97,28 @@ Environment=KOZMOSZ_DRIVE_CREDENTIALS=/run/credentials/kozmosz.service/drive-key
 ```
 
 Majd mentsd el, és indítsd újra: `sudo systemctl restart kozmosz`. A naplóban (`journalctl -u kozmosz`) ekkor ez a sor jelenik meg: `drive: reading 3 folders via Drive API as service account …`. A kulcsot csak a root olvashatja, a szolgáltatás a systemd-n keresztül kapja meg.
+
+## Admin-belépés (Discord)
+
+A footer belépésikonja Discorddal léptet be, jelszó nincs. Csak az léphet be, aki tagja a klub Discord-szerverének, megvan az admin rangja, és be van kapcsolva a kétlépcsős azonosítása. Az alkalmazás, a szerver és a rang azonosítója a `src/admin.rs`-ben van.
+
+1. A Discord Developer Portalon az alkalmazás OAuth2 oldalán add hozzá ezt az átirányítást (Redirects): `https://kozmosz.bme.hu/belepes/discord`.
+2. A Client Secretet így add a szervernek (a parancs bekéri, és nem kerül a parancssori előzményekbe):
+
+   ```bash
+   sudo bash -c 'read -rsp "Client Secret: " s; echo; echo "KOZMOSZ_DISCORD_SECRET=$s" >> /etc/kozmosz/kozmosz.env'
+   sudo chmod 600 /etc/kozmosz/kozmosz.env
+   sudo systemctl restart kozmosz
+   ```
+
+3. Az admin oldal szövege a `/etc/kozmosz/admin.md` fájl, Markdownban (például linkek a boardra és a Drive-táblázatokra): `sudo nano /etc/kozmosz/admin.md`. A változás azonnal látszik, nem kell újraindítani. A fájl nincs a repóban, mert a linkek nem publikusak.
+
+A belépés 30 napig él, újraindítás és frissítés után is. Mindenkit így lehet kiléptetni, például ha valakitől elvettétek a rangot:
+
+```bash
+sudo rm /var/lib/kozmosz/admin.key
+sudo systemctl restart kozmosz
+```
 
 ## Kevés memória
 

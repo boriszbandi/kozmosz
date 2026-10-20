@@ -1,4 +1,5 @@
 mod about;
+mod admin;
 mod contact;
 mod home;
 mod lecturers;
@@ -8,6 +9,7 @@ mod programs;
 mod projects;
 
 pub use about::About;
+pub use admin::{AdminPage, SignInRefused};
 pub use contact::Contact;
 pub use home::Home;
 pub use lecturers::Lecturers;

@@ -7,10 +7,12 @@ async fn main() {
         handler::Handler,
         http::{header, HeaderValue},
         middleware::{from_fn, from_fn_with_state},
+        routing::{get, post},
         serve::ListenerExt,
         Router,
     };
     use kozmosz::{
+        admin::{self, Admin},
         app::{shell, App, STATIC_PAGES},
         calendar::Feed,
         drive::Library,
@@ -66,6 +68,14 @@ async fn main() {
     spawn_calendar_refresh(feed, cache.clone());
     spawn_drive_refresh(library, cache.clone());
 
+    // Admin sign-in with Discord; the /admin page itself is a Leptos route behind admin::guard.
+    let admins = Admin::from_env();
+    let sign_in = Router::new()
+        .route("/belepes", get(admin::login))
+        .route("/belepes/discord", get(admin::callback))
+        .route("/kilepes", post(admin::logout))
+        .with_state(admins.clone());
+
     // Static files: precompressed .br/.gz when cargo-leptos made them (--precompress), except
     // /img and /fonts, whose formats are already compressed. Anything else gets the cached 404 page.
     let not_found = serve_not_found.with_state(cache.clone());
@@ -85,12 +95,14 @@ async fn main() {
     // already carry Content-Encoding (cached pages, precompressed files), images and fonts.
     let app = Router::new()
         .merge(pages)
+        .merge(sign_in)
         .route_service("/img/{*path}", images.clone())
         .route_service("/fonts/{*path}", images)
         // nest_service strips "/drive": the cache directory holds <album>/<file> directly.
         .nest_service("/drive", drive)
         .fallback_service(files)
-        // Innermost: pages rendered per request get their CSS trimmed (cached ones already are).
+        .layer(from_fn_with_state(admins, admin::guard))
+        // Pages rendered per request get their CSS trimmed (cached ones already are).
         .layer(from_fn(purge_page_css))
         .layer(from_fn_with_state(cache, serve_cached))
         .layer(from_fn(redirects))

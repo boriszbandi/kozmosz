@@ -134,7 +134,13 @@ pub fn Footer() -> impl IntoView {
                         </a>
                     </li>
                 </ul>
-                <p class="footer-copy">"© 2026 " {site::NAME}</p>
+                <p class="footer-copy">
+                    <span>"© 2026 " {site::NAME}</span>
+                    // The admins' way in: Discord sign-in (src/admin.rs).
+                    <a class="footer-signin" href="/belepes" rel="nofollow" aria-label="Belépés">
+                        <Icon svg=icons::SIGN_IN/>
+                    </a>
+                </p>
             </div>
             // The name as a horizon: huge, tone on tone, cut by the page's bottom edge.
             <div class="container footer-mark" aria-hidden="true">

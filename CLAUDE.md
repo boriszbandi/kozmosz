@@ -62,6 +62,11 @@ Top priority: fastest possible load. These rules override any design skill or DE
   album has photos. Photo pages: `/projektek/<project>/kep/<slug>` and `/rolunk/kep/<slug>`
   (`src/pages/photo.rs`), rendered per request; every gallery tile opens one, never a bare image file. Browsers never contact Google. Credentials (service-account key, API key) come from
   the environment only; never commit them.
+- Admin: `src/admin.rs`, Discord OAuth2 sign-in (scopes `identify guilds.members.read`; admin role
+  on the club's server and Discord 2FA required; no passwords, no bot token on this server),
+  started from the footer icon (/belepes), a signed 30-day session cookie whose key is in the
+  state directory. /admin (`src/pages/admin.rs`) shows /etc/kozmosz/admin.md and is reachable
+  only through `admin::guard`. The client secret comes from `KOZMOSZ_DISCORD_SECRET` only.
 - UI text is Hungarian. Code, comments and identifiers are English.
 
 ## Commands
