@@ -37,9 +37,9 @@ const ISLAND_PAGES: &[&str] = &[];
 /// /img/ and /drive/ are excluded: some gallery links point at full-size JPEGs.
 const SPECULATION_RULES: &str = r#"{"prefetch":[{"where":{"selector_matches":"a[rel=next], a[rel=prev]"},"eagerness":"eager"},{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/img/*","/drive/*"]}}]},"eagerness":"moderate"}],"prerender":[{"where":{"or":[{"href_matches":["/projektek/*/kep/*","/rolunk/kep/*"]},{"selector_matches":"a[rel=next], a[rel=prev]"}]},"eagerness":"moderate"},{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/img/*","/drive/*"]}}]},"eagerness":"conservative"}]}"#;
 
-/// The only inline script (approved by the user 2026-10-08): the mobile menu is a <details>, and a
-/// page restored from the back/forward cache would come back with the menu still open. Closing it
-/// on pagehide stores the closed state, so nothing flickers on restore.
+/// The only script on every page (approved by the user 2026-10-08): the mobile menu is a
+/// <details>, and a page restored from the back/forward cache would come back with the menu still
+/// open. Closing it on pagehide stores the closed state, so nothing flickers on restore.
 const CLOSE_MENU_ON_LEAVE: &str =
     r#"addEventListener("pagehide",()=>{for(const d of document.querySelectorAll(".nav-mobile details[open]"))d.open=false})"#;
 
