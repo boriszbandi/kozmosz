@@ -3069,3 +3069,132 @@ span.admin-tool {
     grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
   }
 }
+
+/* Membership roster: a real table on wide screens, one card per member on phones. */
+.roster-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s4);
+  margin-bottom: var(--s3);
+}
+
+.roster-stats p {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+.roster-stats strong {
+  margin-right: 6px;
+  color: var(--heading);
+  font-size: 1.5rem;
+}
+
+.roster {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.roster thead th {
+  position: sticky;
+  top: var(--nav-h);
+  z-index: 1;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line-2);
+  background: var(--bg);
+  color: var(--muted);
+  font: 700 var(--fs-xs)/1.2 var(--font-heading);
+  text-align: left;
+}
+
+.roster tbody tr {
+  border-bottom: 1px solid var(--line);
+}
+
+.roster tbody tr:hover {
+  background: rgb(255 255 255 / 0.03);
+}
+
+.roster th[scope="row"],
+.roster td {
+  padding: 12px;
+  vertical-align: middle;
+  text-align: left;
+}
+
+.roster-name {
+  color: var(--heading);
+  font-weight: 600;
+}
+
+.roster-discord {
+  color: var(--text);
+}
+
+.roster-num {
+  width: 9rem;
+}
+
+/* A bar for how often, next to the number. */
+.roster-num .mono {
+  display: inline-block;
+  min-width: 2ch;
+  color: var(--heading);
+  text-align: right;
+}
+
+.roster-bar {
+  display: inline-block;
+  width: 5rem;
+  height: 6px;
+  margin-right: 10px;
+  border-radius: 3px;
+  background: linear-gradient(var(--signal), var(--signal)) 0 0 / var(--share) 100% no-repeat, var(--line);
+  vertical-align: middle;
+}
+
+.roster-last {
+  color: var(--muted);
+}
+
+.roster-none {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+@media (width < 700px) {
+  .roster thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .roster,
+  .roster tbody,
+  .roster tr,
+  .roster th[scope="row"],
+  .roster td {
+    display: block;
+  }
+
+  .roster tbody tr {
+    padding: 10px 0;
+  }
+
+  .roster th[scope="row"],
+  .roster td {
+    padding: 2px 0;
+  }
+
+  .roster td::before {
+    content: attr(data-label) ": ";
+    color: var(--muted);
+  }
+
+  .roster-num {
+    width: auto;
+  }
+}

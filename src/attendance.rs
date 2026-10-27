@@ -710,29 +710,61 @@ pub fn members_page() -> AnyView {
     let rows: Vec<_> = members.people.iter().map(|p| (p.name.clone(), p.discord.clone())).zip(counts).collect();
     view! {
         <AdminLayout title="Tagság" section=Section::Members>
-            <p class="admin-status">{members.status.clone()} " " {sheets.len()} " jelenléti ív alapján."</p>
+            <p class="admin-status">{members.status.clone()}</p>
             {if rows.is_empty() {
                 view! { <p class="empty-note">"Amint beállítjuk a tagsági táblázatot, itt lesz a névsor."</p> }.into_any()
             } else {
+                let most = rows.iter().map(|(_, (times, _))| *times).max().unwrap_or(0).max(1);
+                let came = rows.iter().filter(|(_, (times, _))| *times > 0).count();
+                let total = rows.len();
                 view! {
-                    <ol class="sheet-list">
-                        {rows
-                            .into_iter()
-                            .map(|((name, discord), (times, last))| view! {
-                                <li>
-                                    <span class="sheet-name">{name}</span>
-                                    <span class="sheet-member">
-                                        {match last {
-                                            Some((title, start)) => format!("utoljára: {title}, {}", local(start, "%Y.%m.%d.")),
-                                            None => "még egy eseményen sem volt".to_owned(),
-                                        }}
-                                        {discord.map(|d| format!(" · Discord: @{d}"))}
-                                    </span>
-                                    <span class="sheet-time mono">{times} <span class="visually-hidden">" alkalom"</span></span>
-                                </li>
-                            })
-                            .collect_view()}
-                    </ol>
+                    <div class="roster-stats">
+                        <p><strong class="mono">{total}</strong>" tag"</p>
+                        <p><strong class="mono">{came}</strong>" volt már eseményen"</p>
+                        <p><strong class="mono">{sheets.len()}</strong>" jelenléti ív"</p>
+                    </div>
+                    <table class="roster">
+                        <thead>
+                            <tr>
+                                <th scope="col">"Név"</th>
+                                <th scope="col">"Discord"</th>
+                                <th scope="col" class="roster-num">"Alkalom"</th>
+                                <th scope="col">"Utoljára"</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows
+                                .into_iter()
+                                .map(|((name, discord), (times, last))| {
+                                    // The bar: attendance against the most anyone came.
+                                    let bar = format!("--share:{}%", times * 100 / most);
+                                    view! {
+                                        <tr>
+                                            <th scope="row" class="roster-name">{name}</th>
+                                            <td class="roster-discord" data-label="Discord">
+                                                {discord.map_or_else(|| "nincs".to_owned(), |d| format!("@{d}"))}
+                                            </td>
+                                            <td class="roster-num" data-label="Alkalom">
+                                                <span class="roster-bar" style=bar aria-hidden="true"></span>
+                                                <span class="mono">{times}</span>
+                                            </td>
+                                            <td class="roster-last" data-label="Utoljára">
+                                                {match last {
+                                                    Some((title, start)) => view! {
+                                                        <span>{title}</span>
+                                                        " "
+                                                        <span class="mono">{local(start, "%Y.%m.%d.")}</span>
+                                                    }
+                                                    .into_any(),
+                                                    None => view! { <span class="roster-none">"még nem volt"</span> }.into_any(),
+                                                }}
+                                            </td>
+                                        </tr>
+                                    }
+                                })
+                                .collect_view()}
+                        </tbody>
+                    </table>
                 }
                 .into_any()
             }}
