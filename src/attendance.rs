@@ -50,7 +50,7 @@ use crate::{
 
 /// The membership sheet's ID (the long part of its URL). The sheet is shared (Viewer) with the
 /// service account of KOZMOSZ_DRIVE_CREDENTIALS. None: names are not matched to members.
-const MEMBERS_SHEET: Option<&str> = None;
+const MEMBERS_SHEET: Option<&str> = Some("1LHWBLFiJdbnh9xEfm2mj2v3NM5VxlCLfAwIAdR9z2uk");
 const ZONE: &str = "Europe/Budapest";
 const OPENS_BEFORE: i64 = 60 * 60;
 const CLOSES_AFTER: i64 = 3 * 60 * 60;
