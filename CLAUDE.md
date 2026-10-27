@@ -77,7 +77,8 @@ Top priority: fastest possible load. These rules override any design skill or DE
   hours after it. People sign with Discord (anyone with a role on the club's server, through the
   admin sign-in's callback with a `next` cookie) or a typed full name; entries are validated,
   de-duplicated and kept in `jelenlet/<event>.json` in the state directory, then matched to the
-  membership Google Sheet (`MEMBERS_SHEET`, read with the Drive service account; by its Discord
+  membership Google Sheet (`MEMBERS_SHEET`; it holds ID card numbers, so only its header row
+  and the name and Discord columns are ever requested; read with the Drive service account; by its Discord
   column when present, else by name; matching never guesses). A tagged cookie gives the phone
   its "Kitöltve" ticket. All sheets are one keyed CSV (/jelenlet.csv) for Google Sheets'
   IMPORTDATA; CSV fields that could be formulas are escaped.

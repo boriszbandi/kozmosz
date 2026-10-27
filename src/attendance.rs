@@ -50,7 +50,9 @@ use crate::{
 
 /// The membership sheet's ID (the long part of its URL). The sheet is shared (Viewer) with the
 /// service account of KOZMOSZ_DRIVE_CREDENTIALS. None: names are not matched to members.
-const MEMBERS_SHEET: Option<&str> = Some("1LHWBLFiJdbnh9xEfm2mj2v3NM5VxlCLfAwIAdR9z2uk");
+/// It also holds confidential data (ID card numbers, e-mail, Neptun codes): only the header row
+/// and the name and Discord columns are ever requested, see [`read_members`].
+const MEMBERS_SHEET: Option<&str> = Some("1CaJrts2ldl2h2JSdp3m7H5GPRKJ-_LQRrwPYBRSCcls");
 const ZONE: &str = "Europe/Budapest";
 const OPENS_BEFORE: i64 = 60 * 60;
 const CLOSES_AFTER: i64 = 3 * 60 * 60;
@@ -107,6 +109,12 @@ struct Members {
 struct Values {
     #[serde(default)]
     values: Vec<Vec<String>>,
+}
+
+#[derive(Deserialize)]
+struct Batch {
+    #[serde(rename = "valueRanges")]
+    value_ranges: Vec<Values>,
 }
 
 #[derive(Deserialize)]
@@ -355,19 +363,36 @@ fn publish(members: Members) {
     *MEMBERS.write().unwrap_or_else(PoisonError::into_inner) = Some(Arc::new(members));
 }
 
-/// The people on the membership sheet, below its header row: names from the column headed
-/// "Név", "Teljes név" or "Name" (else the first column), Discord user names from a column whose
-/// header starts with "Discord", if there is one.
-fn people(rows: &[Vec<String>]) -> Vec<Enrolled> {
-    let header: Vec<String> = rows.first().map(|h| h.iter().map(|cell| slugify(cell)).collect()).unwrap_or_default();
-    let name = header.iter().position(|h| matches!(h.as_str(), "nev" | "teljes-nev" | "name" | "full-name")).unwrap_or(0);
-    let discord = header.iter().position(|h| h.starts_with("discord"));
-    rows.iter()
-        .skip(1)
-        .filter_map(|row| {
-            let name = row.get(name)?.trim();
-            let discord = discord
-                .and_then(|i| row.get(i))
+/// The columns to read, from the header row: the one headed "Név", "Teljes név" or "Name"
+/// (required: never a guess, the sheet has confidential columns), and one whose header starts
+/// with "Discord", if there is one.
+fn columns(header: &[String]) -> Option<(usize, Option<usize>)> {
+    let header: Vec<String> = header.iter().map(|cell| slugify(cell)).collect();
+    let name = header.iter().position(|h| matches!(h.as_str(), "nev" | "teljes-nev" | "name" | "full-name"))?;
+    Some((name, header.iter().position(|h| h.starts_with("discord"))))
+}
+
+/// A column's letter: 0 is A, 25 is Z, 26 is AA.
+fn letter(column: usize) -> String {
+    let mut n = column + 1;
+    let mut out = Vec::new();
+    while n > 0 {
+        out.push(b'A' + ((n - 1) % 26) as u8);
+        n = (n - 1) / 26;
+    }
+    out.reverse();
+    String::from_utf8(out).expect("ASCII")
+}
+
+/// The people from the name column and the Discord column (same rows, below the header).
+fn people(names: &[String], discords: &[String]) -> Vec<Enrolled> {
+    names
+        .iter()
+        .enumerate()
+        .filter_map(|(i, name)| {
+            let name = name.trim();
+            let discord = discords
+                .get(i)
                 .map(|d| d.trim().trim_start_matches('@').to_lowercase())
                 .filter(|d| !d.is_empty());
             (!name.is_empty()).then(|| Enrolled { name: name.to_owned(), discord })
@@ -375,19 +400,43 @@ fn people(rows: &[Vec<String>]) -> Vec<Enrolled> {
         .collect()
 }
 
+/// Reads the header row, then only the name and Discord columns: the rest of the sheet (ID card
+/// numbers and the like) never leaves Google.
 async fn read_members(client: &reqwest::Client, account: &mut ServiceAccount, sheet: &str) -> Result<Vec<Enrolled>, String> {
     let token = account.token(client).await?;
-    let values: Values = client
-        .get(format!("https://sheets.googleapis.com/v4/spreadsheets/{sheet}/values/A:Z"))
-        .bearer_auth(token)
+    let base = format!("https://sheets.googleapis.com/v4/spreadsheets/{sheet}/values");
+    let fail = |e: reqwest::Error| e.without_url().to_string();
+    let header: Values = client
+        .get(format!("{base}/1:1"))
+        .bearer_auth(&token)
         .send()
         .await
         .and_then(reqwest::Response::error_for_status)
-        .map_err(|e| e.without_url().to_string())?
+        .map_err(fail)?
         .json()
         .await
-        .map_err(|e| e.to_string())?;
-    Ok(people(&values.values))
+        .map_err(fail)?;
+    let (name, discord) = header
+        .values
+        .first()
+        .and_then(|row| columns(row))
+        .ok_or("no column headed \"Név\" in the first row")?;
+    let mut ranges = vec![("ranges", format!("{0}2:{0}", letter(name)))];
+    ranges.extend(discord.map(|d| ("ranges", format!("{0}2:{0}", letter(d)))));
+    ranges.push(("majorDimension", "COLUMNS".to_owned()));
+    let batch: Batch = client
+        .get(format!("{base}:batchGet"))
+        .query(&ranges)
+        .bearer_auth(&token)
+        .send()
+        .await
+        .and_then(reqwest::Response::error_for_status)
+        .map_err(fail)?
+        .json()
+        .await
+        .map_err(fail)?;
+    let column = |i: usize| batch.value_ranges.get(i).and_then(|v| v.values.first().cloned()).unwrap_or_default();
+    Ok(people(&column(0), &if discord.is_some() { column(1) } else { Vec::new() }))
 }
 
 /// Reads the membership sheet at startup and every 10 minutes, once it is set up
@@ -918,19 +967,17 @@ mod tests {
     }
 
     #[test]
-    fn people_come_from_the_name_and_discord_columns() {
-        let rows = |header: &str| {
-            vec![
-                vec!["E-mail".into(), header.into(), "Discord név".into()],
-                vec!["a@b.hu".into(), " Kovács Anna ".into(), "@Anna_K".into()],
-                vec!["c@d.hu".into(), String::new(), "x".into()],
-            ]
-        };
-        let found = people(&rows("Teljes név"));
-        assert_eq!(found.len(), 1);
-        assert_eq!((found[0].name.as_str(), found[0].discord.as_deref()), ("Kovács Anna", Some("anna_k")));
-        let first_column = people(&rows("Valami"));
-        assert_eq!(first_column.iter().map(|p| p.name.as_str()).collect::<Vec<_>>(), ["a@b.hu", "c@d.hu"]);
+    fn only_the_name_and_discord_columns_are_read() {
+        let header = |cells: &[&str]| cells.iter().map(|c| (*c).to_owned()).collect::<Vec<_>>();
+        let club = header(&["Név", "Mail", "BME Neptun", "Kar", "Jelenlegi tagsági státusz", "Személyi igazolvány szám", "Discord név"]);
+        assert_eq!(columns(&club), Some((0, Some(6))));
+        assert_eq!(columns(&header(&["E-mail", "Teljes név"])), Some((1, None)));
+        assert_eq!(columns(&header(&["1. oszlop", "KSP"])), None, "no guessing which column has names");
+        assert_eq!((letter(0), letter(6), letter(25), letter(26), letter(27)), ("A".into(), "G".into(), "Z".into(), "AA".into(), "AB".into()));
+        let names = header(&[" Kovács Anna ", "", "Végh Máté"]);
+        let found = people(&names, &header(&["@Anna_K", "x"]));
+        let found: Vec<_> = found.iter().map(|p| (p.name.as_str(), p.discord.as_deref())).collect();
+        assert_eq!(found, [("Kovács Anna", Some("anna_k")), ("Végh Máté", None)]);
     }
 
     #[test]
