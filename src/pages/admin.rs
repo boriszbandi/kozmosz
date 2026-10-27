@@ -27,6 +27,7 @@ const TOOLS: [(&str, &str, Option<&str>); 3] = [
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Section {
     Sheets,
+    Members,
     Links,
 }
 
@@ -67,6 +68,10 @@ pub fn AdminLayout(#[prop(into)] title: String, section: Section, children: Chil
                         <Icon svg=icons::QR_CODE/>
                         "Jelenléti ívek"
                     </a>
+                    <a href="/admin/tagsag" aria-current=current(Section::Members)>
+                        <Icon svg=icons::USERS/>
+                        "Tagság"
+                    </a>
                     {std::fs::metadata(LINKS).is_ok().then(|| view! {
                         <a href="/admin/linkek" aria-current=current(Section::Links)>
                             <Icon svg=icons::LINK_SIMPLE/>
@@ -94,6 +99,16 @@ pub fn AdminLayout(#[prop(into)] title: String, section: Section, children: Chil
 pub fn AdminPage() -> impl IntoView {
     #[cfg(feature = "ssr")]
     let page = crate::attendance::events_page();
+    #[cfg(not(feature = "ssr"))]
+    let page = ();
+    page
+}
+
+/// /admin/tagsag: the members from the membership sheet, with their attendance.
+#[component]
+pub fn AdminMembers() -> impl IntoView {
+    #[cfg(feature = "ssr")]
+    let page = crate::attendance::members_page();
     #[cfg(not(feature = "ssr"))]
     let page = ();
     page

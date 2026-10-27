@@ -632,6 +632,66 @@ fn event_list(rows: Vec<Row>) -> AnyView {
     .into_any()
 }
 
+/// How often each member came, and to what last: (times, last event's title and day), in the
+/// membership sheet's order.
+fn tally(people: &[Enrolled], sheets: &[(String, Sheet)]) -> Vec<(usize, Option<(String, i64)>)> {
+    let mut seen: Vec<(usize, Option<(String, i64)>)> = vec![(0, None); people.len()];
+    for (_, sheet) in sheets {
+        // Once per event, however many entries point at the same member.
+        let mut here = HashSet::new();
+        for signed in &sheet.names {
+            let Some(name) = matched(signed, people) else { continue };
+            let Some(i) = people.iter().position(|p| p.name == name) else { continue };
+            if here.insert(i) {
+                seen[i].0 += 1;
+                if seen[i].1.as_ref().is_none_or(|(_, start)| *start < sheet.start) {
+                    seen[i].1 = Some((sheet.title.clone(), sheet.start));
+                }
+            }
+        }
+    }
+    seen
+}
+
+/// /admin/tagsag: everyone on the membership sheet, with how many events they came to.
+pub fn members_page() -> AnyView {
+    let members = members();
+    let sheets = stored(&dir());
+    let counts = tally(&members.people, &sheets);
+    let rows: Vec<_> = members.people.iter().map(|p| (p.name.clone(), p.discord.clone())).zip(counts).collect();
+    view! {
+        <AdminLayout title="Tagság" section=Section::Members>
+            <p class="admin-status">{members.status.clone()} " " {sheets.len()} " jelenléti ív alapján."</p>
+            {if rows.is_empty() {
+                view! { <p class="empty-note">"Amint beállítjuk a tagsági táblázatot, itt lesz a névsor."</p> }.into_any()
+            } else {
+                view! {
+                    <ol class="sheet-list">
+                        {rows
+                            .into_iter()
+                            .map(|((name, discord), (times, last))| view! {
+                                <li>
+                                    <span class="sheet-name">{name}</span>
+                                    <span class="sheet-member">
+                                        {match last {
+                                            Some((title, start)) => format!("utoljára: {title}, {}", local(start, "%Y.%m.%d.")),
+                                            None => "még egy eseményen sem volt".to_owned(),
+                                        }}
+                                        {discord.map(|d| format!(" · Discord: @{d}"))}
+                                    </span>
+                                    <span class="sheet-time mono">{times} <span class="visually-hidden">" alkalom"</span></span>
+                                </li>
+                            })
+                            .collect_view()}
+                    </ol>
+                }
+                .into_any()
+            }}
+        </AdminLayout>
+    }
+    .into_any()
+}
+
 /// The QR code of `link`, as inline SVG (dark on light, with the quiet zone scanners need).
 fn qr_svg(link: &str) -> Option<String> {
     let svg = QrCode::new(link.as_bytes()).ok()?.render::<svg::Color<'_>>().min_dimensions(320, 320).build();
@@ -871,6 +931,25 @@ mod tests {
         assert_eq!((found[0].name.as_str(), found[0].discord.as_deref()), ("Kovács Anna", Some("anna_k")));
         let first_column = people(&rows("Valami"));
         assert_eq!(first_column.iter().map(|p| p.name.as_str()).collect::<Vec<_>>(), ["a@b.hu", "c@d.hu"]);
+    }
+
+    #[test]
+    fn members_are_counted_once_per_event() {
+        let people = enrolled(&[("Végh Máté", Some("vmate04")), ("Kovács Anna", None)]);
+        let sheet = |start: i64, names: &[(&str, Option<&str>)]| Sheet {
+            title: format!("E{start}"),
+            when: String::new(),
+            start,
+            end: None,
+            names: names.iter().map(|&(n, d)| Signed { name: n.into(), at: 0, discord: d.map(str::to_owned) }).collect(),
+        };
+        let sheets = [
+            ("a".to_owned(), sheet(1, &[("Máté", Some("vmate04")), ("Végh Máté", None)])),
+            ("b".to_owned(), sheet(2, &[("Végh Máté", None), ("Valaki Más", None)])),
+        ];
+        let counts = tally(&people, &sheets);
+        assert_eq!(counts[0], (2, Some(("E2".to_owned(), 2))));
+        assert_eq!(counts[1], (0, None));
     }
 
     #[test]

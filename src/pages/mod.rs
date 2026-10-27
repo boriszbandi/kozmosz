@@ -9,7 +9,7 @@ mod programs;
 mod projects;
 
 pub use about::About;
-pub use admin::{AdminEvent, AdminLinks, AdminPage, CheckIn, SignInRefused};
+pub use admin::{AdminEvent, AdminLinks, AdminMembers, AdminPage, CheckIn, SignInRefused};
 #[cfg(feature = "ssr")]
 pub use admin::{AdminLayout, Section};
 pub use contact::Contact;
